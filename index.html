@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kurodoko</title>
+  <meta name="description" content="Play Kurodoko logic puzzles in your browser. Every puzzle is generated with a unique solution, from 4×4 up to 60×60, and a link recreates it exactly.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="src/main.js"></script>
+</head>
+<body>
+  <header class="top">
+    <h1>Kurodoko</h1>
+    <p class="tagline">Shade cells so that every number sees exactly that many unshaded cells.</p>
+  </header>
+
+  <main class="layout">
+    <section class="play">
+      <form id="new-form" class="panel controls" autocomplete="off">
+        <label>Width <input id="w" type="number" inputmode="numeric" required></label>
+        <label>Height <input id="h" type="number" inputmode="numeric" required></label>
+        <label>Difficulty
+          <select id="d">
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+        <label class="seed">Seed <input id="seed" inputmode="numeric" pattern="-?[0-9]{1,15}" title="Any whole number"></label>
+        <div class="buttons">
+          <button type="button" id="random-seed" title="New puzzle with a random seed">Random</button>
+          <button type="submit" id="new" class="primary">New puzzle</button>
+        </div>
+      </form>
+
+      <div class="toolbar" role="toolbar" aria-label="Board">
+        <span class="group">
+          <button type="button" id="undo" title="Undo (Ctrl+Z)">Undo</button>
+          <button type="button" id="redo" title="Redo (Ctrl+Y or Ctrl+Shift+Z)">Redo</button>
+          <button type="button" id="reset" title="Clear the board (undoable)">Reset</button>
+        </span>
+        <span class="group">
+          <button type="button" id="zoom-out" title="Smaller" aria-label="Zoom out">−</button>
+          <button type="button" id="zoom-fit" title="Fit to window">Fit</button>
+          <button type="button" id="zoom-in" title="Larger" aria-label="Zoom in">+</button>
+        </span>
+        <button type="button" id="copy-link" title="Copy a link that recreates this puzzle">Copy link</button>
+      </div>
+
+      <div class="meta">
+        <span id="info"></span>
+        <span id="coord" class="coord" aria-hidden="true"></span>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <div id="progress" class="progress" hidden><div id="progress-bar"></div></div>
+
+      <div id="board-wrap" class="board-wrap">
+        <svg id="board" xmlns="http://www.w3.org/2000/svg" role="img"></svg>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="panel">
+        <h2>Checkpoints</h2>
+        <form id="checkpoint-form" class="checkpoint-form" autocomplete="off">
+          <input id="cp-name" placeholder="Name (optional)" maxlength="40" aria-label="Checkpoint name">
+          <button type="submit">Save</button>
+        </form>
+        <p id="no-checkpoints" class="hint">Save the board before a guess; revert to any checkpoint later.</p>
+        <ol id="checkpoints" class="checkpoints"></ol>
+      </section>
+
+      <section class="panel rules">
+        <h2>How to play</h2>
+        <ul>
+          <li>Shade some cells. Numbered cells are never shaded.</li>
+          <li>Shaded cells never touch side by side.</li>
+          <li>All unshaded cells form one connected area.</li>
+          <li>Each number counts the unshaded cells it can see along its row and column, itself included. Sight stops at a shaded cell or the edge.</li>
+        </ul>
+        <h3>Controls</h3>
+        <ul>
+          <li>Click a cell: empty → dot → shaded → empty. Right-click or Shift-click goes backwards.</li>
+          <li>Drag to apply the same change to more cells.</li>
+          <li>Shading a cell dots its neighbours automatically (smaller dots). Unshading removes only those automatic dots.</li>
+          <li>A number turns grey when its count is met, and blue when it can no longer be met. Touching shaded cells and cut-off areas also turn blue.</li>
+        </ul>
+        <h3>Puzzles</h3>
+        <p>Every puzzle has exactly one solution. Easy keeps the most spare numbers; hard keeps none and usually needs a what-if step. The same width, height, difficulty and seed always give the same puzzle.</p>
+      </section>
+    </aside>
+  </main>
+
+  <footer class="foot">
+    <a href="https://github.com/kurodoko/kurodoko.github.io">Source</a> · GPL-3.0
+  </footer>
+</body>
+</html>

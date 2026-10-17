@@ -1,0 +1,12 @@
+{
+  "name": "kurodoko",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kurodoko puzzles in the browser, with a deterministic generator",
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "generate": "node scripts/generate.mjs"
+  }
+}

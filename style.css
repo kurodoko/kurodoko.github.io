@@ -1,0 +1,434 @@
+:root {
+  --bg: #f4f3ef;
+  --panel: #ffffff;
+  --ink: #1c1c1e;
+  --muted: #6e6e73;
+  --line: #dcd9d2;
+  --grid: #c9c6be;
+  --cell: #fdfcf9;
+  --filled: #1c1c1e;
+  --dot: #4a4a4f;
+  --dot-auto: #a3a3a8;
+  --done: #bcbab3;
+  --error: #1a66e8;
+  --error-tint: rgba(26, 102, 232, 0.16);
+  --ok: #1d7f47;
+  --hover: #efede8;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131315;
+    --panel: #1c1c1f;
+    --ink: #ececef;
+    --muted: #9b9ba2;
+    --line: #2f2f34;
+    --grid: #3b3b41;
+    --cell: #212125;
+    --filled: #e6e6ea;
+    --dot: #c7c7cd;
+    --dot-auto: #74747b;
+    --done: #56565c;
+    --error: #5c9dff;
+    --error-tint: rgba(92, 157, 255, 0.24);
+    --ok: #4cc27f;
+    --hover: #26262a;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: inherit;
+}
+
+.top {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 20px 16px 4px;
+}
+
+.top h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  letter-spacing: 0.01em;
+}
+
+.tagline {
+  margin: 2px 0 0;
+  color: var(--muted);
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.side h2 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.side h3 {
+  margin: 14px 0 6px;
+  font-size: 0.9rem;
+}
+
+.rules ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.rules li + li {
+  margin-top: 4px;
+}
+
+.rules p {
+  margin: 0;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: end;
+}
+
+.controls label {
+  display: grid;
+  gap: 3px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.controls input,
+.controls select,
+.checkpoint-form input {
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.controls input[type="number"] {
+  width: 5.2em;
+}
+
+.controls .seed input {
+  width: 9em;
+}
+
+.controls .buttons {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+button {
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button.primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--ink);
+  opacity: 0.88;
+}
+
+button.icon {
+  padding: 4px 9px;
+  line-height: 1;
+}
+
+:focus-visible {
+  outline: 2px solid var(--error);
+  outline-offset: 2px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  margin: 12px 0 6px;
+}
+
+.toolbar .group {
+  display: flex;
+  gap: 6px;
+}
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  min-height: 1.3em;
+}
+
+.coord {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.status {
+  margin: 2px 0 8px;
+  min-height: 1.45em;
+  color: var(--muted);
+}
+
+.status.ok {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.status.error {
+  color: var(--error);
+}
+
+.progress {
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+#progress-bar {
+  height: 100%;
+  width: 0;
+  background: var(--ink);
+  transition: width 0.1s linear;
+}
+
+.board-wrap {
+  overflow: auto;
+  max-width: 100%;
+  padding-bottom: 4px;
+}
+
+body.busy .board-wrap {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+#board {
+  display: block;
+  margin: 0 auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#board text {
+  pointer-events: none;
+}
+
+.board-bg {
+  fill: var(--cell);
+}
+
+.cell {
+  fill: transparent;
+}
+
+.cell.isolated {
+  fill: var(--error-tint);
+}
+
+.cell.filled {
+  fill: var(--filled);
+}
+
+.cell.filled.error {
+  fill: var(--error);
+}
+
+.grid-line {
+  fill: none;
+  stroke: var(--grid);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.grid-border {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+#board.solved .grid-border {
+  stroke: var(--ok);
+  stroke-width: 3;
+}
+
+.dot {
+  fill: var(--dot);
+}
+
+.dot.auto {
+  fill: var(--dot-auto);
+}
+
+.clue {
+  font: 600 22px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-anchor: middle;
+  dominant-baseline: central;
+  fill: var(--ink);
+}
+
+.clue.done {
+  fill: var(--done);
+}
+
+.clue.error {
+  fill: var(--error);
+  font-weight: 800;
+}
+
+.labels {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.col-label,
+.row-label {
+  fill: var(--muted);
+  dominant-baseline: central;
+}
+
+.col-label {
+  text-anchor: middle;
+}
+
+.row-label {
+  text-anchor: end;
+}
+
+.labels .hl {
+  fill: var(--ink);
+  font-weight: 700;
+}
+
+.checkpoint-form {
+  display: flex;
+  gap: 8px;
+}
+
+.checkpoint-form input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 10px 0 0;
+}
+
+.checkpoints {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 340px;
+  overflow: auto;
+}
+
+.checkpoints li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.cp-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+
+.cp-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cp-meta {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.foot {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 8px 16px 24px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}

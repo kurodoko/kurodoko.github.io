@@ -1,0 +1,275 @@
+// Game state: what the player has marked, independent of any display.
+//
+// Each non-number cell is EMPTY, DOT (placed by the player), AUTO (a dot
+// placed automatically next to a filled cell) or FILLED. Filling a cell puts
+// AUTO dots on its empty neighbours; unfilling removes only AUTO dots that no
+// longer touch a filled cell. Player dots are never touched.
+
+import { neighbourTable, components, isValidSolution } from './grid.js';
+
+export const EMPTY = 0;
+export const DOT = 1;
+export const AUTO = 2;
+export const FILLED = 3;
+
+/** Clue display states from analyze(). */
+export const CLUE_OPEN = 0;
+export const CLUE_DONE = 1;
+export const CLUE_ERROR = 2;
+
+const isDot = (v) => v === DOT || v === AUTO;
+
+/** Click cycle: empty → dot → filled → empty (reverse goes the other way). */
+export function nextState(v, reverse = false) {
+  if (reverse) return v === EMPTY ? FILLED : v === FILLED ? DOT : EMPTY;
+  return v === EMPTY ? DOT : v === FILLED ? EMPTY : FILLED;
+}
+
+const kind = (v) => (isDot(v) ? DOT : v);
+
+export class Game {
+  constructor({ w, h, clues }, saved = null) {
+    this.w = w;
+    this.h = h;
+    this.n = w * h;
+    this.clues = Array.from(clues);
+    this.nb = neighbourTable(w, h);
+    this.cells = new Uint8Array(this.n);
+    this.history = [];
+    this.future = [];
+    this.checkpoints = [];
+    this.stroke = null;
+    if (saved) this.restore(saved);
+  }
+
+  // --- low-level writes -----------------------------------------------------
+
+  write(i, v) {
+    if (this.cells[i] === v) return;
+    if (this.stroke && !this.stroke.old.has(i)) this.stroke.old.set(i, this.cells[i]);
+    this.cells[i] = v;
+  }
+
+  hasFilledNeighbour(i) {
+    for (let d = 0; d < 4; d++) {
+      const j = this.nb[4 * i + d];
+      if (j >= 0 && this.cells[j] === FILLED) return true;
+    }
+    return false;
+  }
+
+  /** Set one cell, maintaining automatic dots. */
+  setState(i, target) {
+    if (this.clues[i]) return;
+    const old = this.cells[i];
+    if (old === target) return;
+    if (target === FILLED) {
+      this.write(i, FILLED);
+      for (let d = 0; d < 4; d++) {
+        const j = this.nb[4 * i + d];
+        if (j >= 0 && !this.clues[j] && this.cells[j] === EMPTY) this.write(j, AUTO);
+      }
+      return;
+    }
+    // A cell unfilled next to another filled cell keeps an automatic dot.
+    this.write(i, old === FILLED && target === EMPTY && this.hasFilledNeighbour(i) ? AUTO : target);
+    if (old === FILLED) {
+      for (let d = 0; d < 4; d++) {
+        const j = this.nb[4 * i + d];
+        if (j >= 0 && this.cells[j] === AUTO && !this.hasFilledNeighbour(j)) this.write(j, EMPTY);
+      }
+    }
+  }
+
+  // --- player actions -------------------------------------------------------
+
+  /**
+   * Start a stroke (pointer down) on cell i. Dragging then applies the same
+   * new state to cells that started in the same state as i. Returns false if
+   * i cannot be marked.
+   */
+  beginStroke(i, reverse = false) {
+    this.endStroke();
+    if (i < 0 || this.clues[i]) return false;
+    const from = kind(this.cells[i]);
+    this.stroke = { old: new Map(), from, target: nextState(this.cells[i], reverse) };
+    this.setState(i, this.stroke.target);
+    return true;
+  }
+
+  /** Extend the current stroke to cell i (cells already changed are skipped). */
+  continueStroke(i) {
+    const s = this.stroke;
+    if (!s || i < 0 || this.clues[i] || s.old.has(i)) return;
+    if (kind(this.cells[i]) !== s.from) return;
+    this.setState(i, s.target);
+  }
+
+  endStroke() {
+    const s = this.stroke;
+    if (!s) return;
+    this.stroke = null;
+    this.record(s.old);
+  }
+
+  /** Single click: a one-cell stroke. */
+  click(i, reverse = false) {
+    if (this.beginStroke(i, reverse)) this.endStroke();
+  }
+
+  /** Push the changes in old (cell → previous value) as one undo step. */
+  record(old) {
+    const group = [];
+    for (const [i, v] of old) if (this.cells[i] !== v) group.push(i, v, this.cells[i]);
+    if (group.length === 0) return;
+    this.history.push(group);
+    this.future.length = 0;
+  }
+
+  /** Replace every cell with values (one undo step). */
+  replaceAll(values) {
+    const old = new Map();
+    for (let i = 0; i < this.n; i++) {
+      if (this.cells[i] !== values[i]) {
+        old.set(i, this.cells[i]);
+        this.cells[i] = values[i];
+      }
+    }
+    this.record(old);
+  }
+
+  undo() {
+    this.endStroke();
+    const group = this.history.pop();
+    if (!group) return false;
+    for (let k = group.length - 3; k >= 0; k -= 3) this.cells[group[k]] = group[k + 1];
+    this.future.push(group);
+    return true;
+  }
+
+  redo() {
+    this.endStroke();
+    const group = this.future.pop();
+    if (!group) return false;
+    for (let k = 0; k < group.length; k += 3) this.cells[group[k]] = group[k + 2];
+    this.history.push(group);
+    return true;
+  }
+
+  reset() {
+    this.endStroke();
+    this.replaceAll(new Uint8Array(this.n));
+  }
+
+  // --- checkpoints ----------------------------------------------------------
+
+  saveCheckpoint(name, time = Date.now()) {
+    this.endStroke();
+    const filled = this.cells.reduce((a, v) => a + (v === FILLED ? 1 : 0), 0);
+    this.checkpoints.push({
+      name: name || `Checkpoint ${this.checkpoints.length + 1}`,
+      time,
+      filled,
+      cells: encodeCells(this.cells),
+    });
+    return this.checkpoints.length - 1;
+  }
+
+  revertCheckpoint(k) {
+    const cp = this.checkpoints[k];
+    if (!cp) return false;
+    this.endStroke();
+    this.replaceAll(decodeCells(cp.cells, this.n));
+    return true;
+  }
+
+  deleteCheckpoint(k) {
+    this.checkpoints.splice(k, 1);
+  }
+
+  // --- rules ----------------------------------------------------------------
+
+  /**
+   * Rule check for display.
+   *   clueState[i]  CLUE_DONE when the count to the first filled cell or edge
+   *                 in each direction is exactly the number; CLUE_ERROR when it
+   *                 can no longer be met.
+   *   adjacent[i]   1 for filled cells touching another filled cell.
+   *   isolated[i]   1 for unfilled cells cut off from the largest unfilled area.
+   *   solved        every rule holds (unmarked cells count as unshaded).
+   */
+  analyze() {
+    const { w, h, n, cells, clues, nb } = this;
+    const adjacent = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      if (cells[i] !== FILLED) continue;
+      for (let d = 0; d < 4; d++) {
+        const j = nb[4 * i + d];
+        if (j >= 0 && cells[j] === FILLED) adjacent[i] = adjacent[j] = 1;
+      }
+    }
+
+    const isolated = new Uint8Array(n);
+    const { comp, sizes } = components(w, h, (i) => cells[i] !== FILLED);
+    if (sizes.length > 1) {
+      let main = 0;
+      for (let k = 1; k < sizes.length; k++) if (sizes[k] > sizes[main]) main = k;
+      for (let i = 0; i < n; i++) if (comp[i] >= 0 && comp[i] !== main) isolated[i] = 1;
+    }
+
+    const clueState = new Int8Array(n);
+    let allDone = true;
+    for (let p = 0; p < n; p++) {
+      const target = clues[p];
+      if (!target) continue;
+      let max = 1;
+      let min = 1;
+      for (let d = 0; d < 4; d++) {
+        let j = nb[4 * p + d];
+        let sure = true;
+        while (j >= 0 && cells[j] !== FILLED) {
+          max++;
+          if (sure && (isDot(cells[j]) || clues[j])) min++;
+          else sure = false;
+          j = nb[4 * j + d];
+        }
+      }
+      if (min > target || max < target) clueState[p] = CLUE_ERROR;
+      else if (max === target) clueState[p] = CLUE_DONE;
+      if (max !== target) allDone = false;
+    }
+
+    const solved = allDone && sizes.length === 1 && !adjacent.includes(1)
+      && isValidSolution(w, h, clues, Array.from(cells, (v) => v === FILLED));
+    return { clueState, adjacent, isolated, solved };
+  }
+
+  // --- persistence ----------------------------------------------------------
+
+  serialize() {
+    return { cells: encodeCells(this.cells), checkpoints: this.checkpoints };
+  }
+
+  restore(saved) {
+    if (typeof saved.cells === 'string' && saved.cells.length === this.n) {
+      this.cells = decodeCells(saved.cells, this.n);
+      for (let i = 0; i < this.n; i++) if (this.clues[i]) this.cells[i] = EMPTY;
+    }
+    if (Array.isArray(saved.checkpoints)) {
+      this.checkpoints = saved.checkpoints.filter((cp) => typeof cp.cells === 'string' && cp.cells.length === this.n);
+    }
+  }
+}
+
+export function encodeCells(cells) {
+  return Array.from(cells, (v) => String(v)).join('');
+}
+
+export function decodeCells(s, n) {
+  const cells = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    const v = s.charCodeAt(i) - 48;
+    cells[i] = v >= 0 && v <= 3 ? v : EMPTY;
+  }
+  return cells;
+}
