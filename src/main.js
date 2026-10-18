@@ -312,16 +312,15 @@ if (window.ResizeObserver) {
   }).observe($('board-wrap'));
 }
 
-// Pinch zoom enlarges everything, grid lines included; the stylesheet divides
-// line widths by --zoom so they stay as thin on screen as without zoom. It is
-// updated only once a pinch has stopped: redrawing the whole board during the
-// gesture left stale fragments on screen in Chrome on Android.
+// Pinch zoom enlarges everything; the board then redraws its grid lines to
+// grow more slowly than the cells (Board.applyStrokes). That happens only once
+// a pinch has stopped: redrawing the whole board during the gesture left
+// stale fragments on screen in Chrome on Android.
 if (window.visualViewport) {
   let zoomTimer = 0;
   const setZoom = () => {
-    const zoom = String(Math.round(100 * Math.max(1, window.visualViewport.scale)) / 100);
-    const root = document.documentElement;
-    if (root.style.getPropertyValue('--zoom') !== zoom) root.style.setProperty('--zoom', zoom);
+    const zoom = Math.round(100 * Math.max(1, window.visualViewport.scale)) / 100;
+    if (zoom !== board.zoom) board.setZoom(zoom);
   };
   window.visualViewport.addEventListener('resize', () => {
     clearTimeout(zoomTimer);

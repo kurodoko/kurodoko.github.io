@@ -363,26 +363,27 @@ body.busy .board-wrap {
   fill: var(--error);
 }
 
-/* Stroke widths on the board are in screen pixels: --px is one CSS pixel in
-   board units (set by ui.js for the board's scale), and the grid lines are
-   also divided by the pinch zoom (--zoom, set by main.js once a pinch ends),
-   so zooming in enlarges the cells but not the lines. */
+/* Stroke widths on the board come from ui.js (applyStrokes), in board units:
+   --px is one CSS pixel; --line, --major and --border are whole screen
+   pixels that grow more slowly than the cells under pinch zoom. */
 .grid-line {
   fill: none;
   stroke: var(--grid);
-  stroke-width: calc(var(--px, 1px) / var(--zoom, 1));
+  stroke-width: var(--line, 1px);
+  shape-rendering: crispEdges;
 }
 
 .grid-line.major {
   stroke: var(--grid-major);
-  stroke-width: calc(1.75 * var(--px, 1px) / var(--zoom, 1));
+  stroke-width: var(--major, 1.75px);
 }
 
-/* Clipped to its outer half (see ui.js), so it shows half this width. */
+/* Clipped to its outer half (see ui.js), so the stroke is twice --border. */
 .grid-border {
   fill: none;
   stroke: var(--ink);
-  stroke-width: calc(5 * var(--px, 1px) / var(--zoom, 1));
+  stroke-width: calc(2 * var(--border, 2.5px));
+  shape-rendering: crispEdges;
 }
 
 #board.solved .cell.filled {
@@ -395,7 +396,7 @@ body.busy .board-wrap {
 
 #board.solved .grid-border {
   stroke: var(--ok);
-  stroke-width: calc(6 * var(--px, 1px) / var(--zoom, 1));
+  stroke-width: calc(2 * var(--border-solved, 3px));
   /* Turns green as the solve animation settles. */
   transition: stroke 1.1s ease-in-out 3.4s, stroke-width 1.1s ease-in-out 3.4s;
 }

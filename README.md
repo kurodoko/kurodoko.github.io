@@ -22,8 +22,9 @@ same puzzle.
 - The board fits the window when it can and is never clipped. Cells never
   get smaller than 20 px on a touch screen (14 px with a mouse); a bigger
   board scrolls sideways in its column and down the page. To look closer,
-  use the browser's pinch zoom (touch screen or trackpad); grid lines stay
-  thin while zoomed. Every 4th grid line is heavier to help counting.
+  use the browser's pinch zoom (touch screen or trackpad); grid lines are
+  whole screen pixels and grow more slowly than the cells. Every 4th grid
+  line is heavier to help counting.
 - Dotted cells have a slightly paler background than untouched ones.
 - Dots appear automatically (drawn smaller) next to shaded cells and go away
   when the shading does; dots you placed are never changed.

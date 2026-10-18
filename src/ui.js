@@ -69,6 +69,8 @@ export class Board {
     this.onHover = onHover;
     this.game = null;
     this.scale = 1;
+    // Pinch zoom of the page (see setZoom).
+    this.zoom = 1;
     this.press = null;
     this.touchPointers = new Set();
     this.hover = -1;
@@ -298,12 +300,41 @@ export class Board {
     // Round down so a board that fits never spills over its container.
     this.svg.setAttribute('width', Math.floor(this.width * this.scale));
     this.svg.setAttribute('height', Math.floor(this.height * this.scale));
-    // One CSS pixel in board units, for stroke widths (see style.css).
-    this.svg.style.setProperty('--px', `${1 / this.scale}px`);
+    this.applyStrokes();
     // Lets the page centre things over the grid rather than the whole board.
     this.svg.parentElement.style.setProperty('--grid-shift', `${(MARGIN_LEFT - PAD) * this.scale}px`);
     // Keep coordinates at least ~8px on screen, within what fits a cell.
     this.labelLayer.style.fontSize = `${Math.min(0.5 * U, Math.max(0.35 * U, 8 / this.scale))}px`;
+  }
+
+  /** The page's pinch zoom changed (visualViewport.scale). */
+  setZoom(zoom) {
+    this.zoom = zoom;
+    this.applyStrokes();
+  }
+
+  /**
+   * Stroke widths for the stylesheet, in board units. Grid lines and the
+   * border are whole screen pixels, drawn with crisp edges: a fraction of a
+   * pixel would be shaded half-way, which merges with a grey cell but shows
+   * against a pale one, so a line seemed to change width along its length.
+   * Zooming in thickens them with the square root of the zoom, so they grow,
+   * but more slowly than the cells.
+   */
+  applyStrokes() {
+    if (!this.game) return;
+    // Board units to CSS pixels as drawn (the size was rounded down).
+    const scale = Math.min(Number(this.svg.getAttribute('width')) / this.width, Number(this.svg.getAttribute('height')) / this.height);
+    const dpr = window.devicePixelRatio || 1;
+    const grow = Math.sqrt(this.zoom);
+    const device = (cssPx, min) => Math.max(min, Math.round(cssPx * dpr * grow)) / (dpr * this.zoom * scale);
+    const line = device(1, 1);
+    const style = this.svg.style;
+    style.setProperty('--px', `${1 / scale}px`);
+    style.setProperty('--line', `${line}px`);
+    style.setProperty('--major', `${Math.max(device(1.75, 1), line + 1 / (dpr * this.zoom * scale))}px`);
+    style.setProperty('--border', `${device(2.5, 2)}px`);
+    style.setProperty('--border-solved', `${device(3, 2)}px`);
   }
 
   // --- input ----------------------------------------------------------------
