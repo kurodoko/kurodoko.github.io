@@ -178,7 +178,7 @@ export class Game {
    *                 be met.
    *   adjacent[i]   1 for filled cells touching another filled cell.
    *   isolated[i]   1 for unfilled cells cut off from the largest unfilled area.
-   *   solved        every rule holds (unmarked cells count as unshaded).
+   *   solved        every cell is shaded or dotted, and every rule holds.
    */
   analyze() {
     const { w, h, n, cells, clues, nb } = this;
@@ -221,7 +221,9 @@ export class Game {
       if (max !== target) allDone = false;
     }
 
-    const solved = allDone && sizes.length === 1 && !adjacent.includes(1)
+    let marked = true;
+    for (let i = 0; i < n && marked; i++) if (!clues[i] && cells[i] === EMPTY) marked = false;
+    const solved = marked && allDone && sizes.length === 1 && !adjacent.includes(1)
       && isValidSolution(w, h, clues, Array.from(cells, (v) => v === FILLED));
     return { clueState, adjacent, isolated, solved };
   }

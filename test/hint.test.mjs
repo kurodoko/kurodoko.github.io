@@ -54,6 +54,13 @@ test('hints point at a number that really decides something, or a real step', ()
         }
         if (k < blacks.length) g.click(blacks[k], true);
       }
+      // Every shaded cell is in place; the rest still has to be dotted.
+      for (let i = 0; i < g.n; i++) {
+        if (g.analyze().solved) break;
+        const hint = findHint(g);
+        assert.ok(hint, 'unsolved boards always get a hint');
+        if (!p.clues[i] && g.cells[i] === EMPTY) g.click(i);
+      }
       assert.ok(g.analyze().solved);
       assert.equal(findHint(g), null, 'nothing left to hint once solved');
     }

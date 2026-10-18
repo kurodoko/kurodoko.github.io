@@ -213,11 +213,15 @@ test('start and solve times are kept and formatted as hh:mm:ss', () => {
   assert.equal(fresh.solvedAt, 0);
 });
 
-test('entering the solution solves the puzzle; serialize round-trips', () => {
+test('entering the solution and dotting every other cell solves the puzzle; serialize round-trips', () => {
   const p = generate({ w: 8, h: 8, seed: 3, difficulty: 'easy' });
   const g = new Game(p);
   assert.ok(!g.analyze().solved);
   p.solution.forEach((b, i) => { if (b) g.click(i, true); });
+  const empty = Array.from(g.cells.keys()).filter((i) => !p.clues[i] && g.cells[i] === EMPTY);
+  assert.ok(empty.length > 0, 'some cells are not next to a shaded cell');
+  assert.ok(!g.analyze().solved, 'not finished while cells are unmarked');
+  for (const i of empty) g.click(i);
   assert.ok(g.analyze().solved);
   g.saveCheckpoint('done');
   const copy = new Game(p, JSON.parse(JSON.stringify(g.serialize())));

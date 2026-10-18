@@ -182,6 +182,8 @@ async function start(params, { push = false } = {}) {
 
   const saved = store.get('progress:' + id);
   const game = new Game(puzzle, saved);
+  // Saves from when unmarked cells could finish a puzzle.
+  if (game.solvedAt && !game.analyze().solved) game.solvedAt = 0;
   current = { params, id, game, solution: puzzle.solution };
   mistakeStep = 0;
   board.setGame(game);
