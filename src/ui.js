@@ -298,6 +298,8 @@ export class Board {
     // Round down so a board that fits never spills over its container.
     this.svg.setAttribute('width', Math.floor(this.width * this.scale));
     this.svg.setAttribute('height', Math.floor(this.height * this.scale));
+    // One CSS pixel in board units, for stroke widths (see style.css).
+    this.svg.style.setProperty('--px', `${1 / this.scale}px`);
     // Lets the page centre things over the grid rather than the whole board.
     this.svg.parentElement.style.setProperty('--grid-shift', `${(MARGIN_LEFT - PAD) * this.scale}px`);
     // Keep coordinates at least ~8px on screen, within what fits a cell.
