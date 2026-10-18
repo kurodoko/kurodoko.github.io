@@ -15,6 +15,9 @@
   --error-tint: rgba(26, 102, 232, 0.16);
   --hint: #d63384;
   --hint-tint: rgba(214, 51, 132, 0.14);
+  /* Numbers on the board (they sit on the dotted-cell background). */
+  --clue: #1c1c1e;
+  --clue-error: #1a66e8;
   --ok: #1d7f47;
   --hover: #efede8;
   color-scheme: light;
@@ -27,19 +30,22 @@
     --ink: #ececef;
     --muted: #9b9ba2;
     --line: #2f2f34;
-    /* Board: grey empty cells, lighter grey dotted and numbered cells,
-       near-black shaded cells; grid lines read as dark gaps. */
+    /* Board: grey empty cells, light grey dotted and numbered cells with
+       dark numbers and dots, near-black shaded cells; grid lines read as
+       dark gaps. */
     --grid: #2c2c31;
     --grid-major: #151518;
     --cell: #45454c;
-    --cell-dot: #6a6a72;
+    --cell-dot: #b9b9c0;
     --filled: #0c0c0e;
-    --dot: #b9b9c0;
-    --done: #abb0b8;
+    --dot: #26262b;
+    --done: #71717a;
     --error: #9cc4ff;
     --error-tint: rgba(156, 196, 255, 0.3);
-    --hint: #ff7ac6;
-    --hint-tint: rgba(255, 122, 198, 0.2);
+    --hint: #e8288f;
+    --hint-tint: rgba(232, 40, 143, 0.22);
+    --clue: #111114;
+    --clue-error: #0b4bc4;
     --ok: #4cc27f;
     --hover: #26262a;
     color-scheme: dark;
@@ -376,7 +382,7 @@ body.busy .board-wrap {
   font: 600 22px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   text-anchor: middle;
   dominant-baseline: central;
-  fill: var(--ink);
+  fill: var(--clue);
 }
 
 .clue.done {
@@ -384,7 +390,7 @@ body.busy .board-wrap {
 }
 
 .clue.error {
-  fill: var(--error);
+  fill: var(--clue-error);
   font-weight: 800;
 }
 
