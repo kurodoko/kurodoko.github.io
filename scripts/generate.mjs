@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Generate a puzzle from the command line.
-//   node scripts/generate.mjs <width> <height> <seed> [easy|medium|hard] [--json]
+//   node scripts/generate.mjs <width> <height> <seed> [easy|medium|hard|fiendish] [--json]
 
 import { generate } from '../src/generator.js';
 import { columnName } from '../src/grid.js';

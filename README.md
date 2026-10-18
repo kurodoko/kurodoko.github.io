@@ -47,7 +47,7 @@ same puzzle.
 | Parameter | Meaning |
 | --- | --- |
 | `w`, `h` | Width and height, 4 to 60 |
-| `d` | `easy`, `medium` or `hard` |
+| `d` | `easy`, `medium`, `hard` or `fiendish` |
 | `seed` | Any whole number (up to 15 digits) |
 | `v` | Generator version the link was made with |
 
@@ -73,8 +73,18 @@ in advance.
    trail, so most tests reuse earlier work.
 3. **Difficulty.** Easy and medium need only direct reasoning (number counts,
    no touching shaded cells, connectivity) and keep 60% and 25% spare numbers.
-   Hard keeps none and allows what-if reasoning (assume a cell, find a
-   contradiction), which most hard puzzles need.
+   Hard and fiendish keep none and allow what-if reasoning (assume a cell,
+   find a contradiction):
+   - **Hard** allows only short what-ifs, whose contradiction shows within
+     6 forced steps, and at most one per 150 cells (1 on 10×10, 24 on
+     60×60). After generation the puzzle is solved the way a person would
+     (direct reasoning to a standstill, then one short what-if); wherever
+     that runs out, a number is added. In practice 10×10 needs 0–1 and
+     30×30 0–6.
+   - **Fiendish** allows what-ifs of any length (up to 60 steps) and any
+     number of them. On grids up to about 20×20 it usually needs a long one.
+     On large grids it is close to hard, because the search for what-if
+     steps there is limited to small areas.
 4. Several candidates are built for small grids. The winner has loosely
    symmetric number positions (rewarded up to 60% of numbers having a mirror
    partner, penalised above 80% so it never looks exact), no accidental
@@ -85,10 +95,10 @@ so a puzzle it fills completely has exactly one solution. The tests check this
 against an independent brute-force search.
 
 Generation time measured in Node (headless Chromium is similar): 60×60
-averages about 170 ms (easy and medium) and 330 ms (hard), at most about
-440 ms in the benchmark. Most smaller sizes take under 60 ms; the slowest are
-hard 16×16 to 20×20 at up to about 250 ms, where contradiction search is
-allowed on gaps of any size.
+averages about 165 ms (easy and medium), 280 ms (hard) and 290 ms
+(fiendish), at most about 360 ms in the benchmark. Most smaller sizes take
+under 60 ms; the slowest are fiendish 16×16 to 20×20 at up to about 220 ms,
+where contradiction search is allowed on gaps of any size.
 
 **Versioning:** any change that alters generated puzzles must bump
 `GENERATOR_VERSION` in `src/generator.js`. Links carry `v=`, and the page warns

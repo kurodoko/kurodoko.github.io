@@ -28,8 +28,10 @@ export const BASIC = 1;
 export const CONNECT = 2;
 export const TRIAL = 3;
 
-/** Clue evaluations allowed when propagating an assumption. */
-const TRIAL_BUDGET = 60;
+/** Default number of clue evaluations an assumption may follow (see trialBudget). */
+export const TRIAL_BUDGET = 60;
+/** A short what-if: one whose contradiction shows within a few steps. */
+export const SHORT_TRIAL_BUDGET = 6;
 
 // Ring of the 8 surrounding cells, clockwise from north.
 const RING_DR = [-1, -1, 0, 1, 1, 1, 0, -1];
@@ -115,6 +117,9 @@ export class Solver {
     this.fixAt = -1;
     // Trail length when each clue first deduced something (n+1 = never).
     this.firstUse = new Int32Array(n);
+
+    // How far a what-if may be followed: clue evaluations before giving up.
+    this.trialBudget = TRIAL_BUDGET;
 
     // Cells to try by contradiction when zoneOnly is set. If trialHits is an
     // array, cells settled by contradiction are appended to it.
@@ -625,7 +630,7 @@ export class Solver {
   /** Does assuming cell i = v lead to a contradiction? State is unchanged afterwards. */
   refutes(i, v) {
     const m = this.mark();
-    this.budget = TRIAL_BUDGET;
+    this.budget = this.trialBudget;
     const ok = this.set(i, v) && this.propagate();
     this.budget = Infinity;
     this.rollback(m);

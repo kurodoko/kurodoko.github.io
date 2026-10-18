@@ -19,19 +19,22 @@
 // numbers.
 
 import { Rng } from './rng.js';
-import { Solver, CONNECT, TRIAL, UNKNOWN } from './solver.js';
+import { Solver, CONNECT, TRIAL, UNKNOWN, BLACK, WHITE, TRIAL_BUDGET, SHORT_TRIAL_BUDGET } from './solver.js';
 import { neighbourTable, visibleCount, MIN_SIZE, MAX_SIZE } from './grid.js';
 import { availableGroups, orbits, symmetryScore } from './symmetry.js';
 
-export const GENERATOR_VERSION = 2;
+export const GENERATOR_VERSION = 3;
 
 export const DIFFICULTIES = {
   // level: strongest solving technique allowed.
   // extra: redundant numbers kept, as a fraction of the minimal set.
   // candidateCells: build about candidateCells / (w*h) candidates (1 to 6).
+  // trialBudget: number checks a what-if may follow before its contradiction.
+  // cellsPerWhatIf: allow about one what-if step per this many cells (0: no limit).
   easy: { level: CONNECT, extra: 0.6, candidateCells: 900 },
   medium: { level: CONNECT, extra: 0.25, candidateCells: 900 },
-  hard: { level: TRIAL, extra: 0, candidateCells: 400 },
+  hard: { level: TRIAL, extra: 0, candidateCells: 400, trialBudget: SHORT_TRIAL_BUDGET, cellsPerWhatIf: 150 },
+  fiendish: { level: TRIAL, extra: 0, candidateCells: 400, trialBudget: TRIAL_BUDGET, cellsPerWhatIf: 0 },
 };
 
 /** Probability of adding each further member of a number's symmetry orbit. */
@@ -69,14 +72,14 @@ export function checkParams({ w, h, seed, difficulty }) {
     }
   }
   if (!/^-?\d{1,15}$/.test(String(seed))) throw new Error('seed must be an integer');
-  if (!DIFFICULTIES[difficulty]) throw new Error('difficulty must be easy, medium or hard');
+  if (!DIFFICULTIES[difficulty]) throw new Error(`difficulty must be one of ${Object.keys(DIFFICULTIES).join(', ')}`);
 }
 
 export function generate({ w, h, seed, difficulty = 'medium', onProgress = () => {} }) {
   checkParams({ w, h, seed, difficulty });
   const spec = DIFFICULTIES[difficulty];
   const rng = new Rng('kurodoko', GENERATOR_VERSION, w, h, String(seed), difficulty);
-  // Candidates to choose the best-looking from; hard ones cost more to build.
+  // Candidates to choose the best-looking from; what-if levels cost more to build.
   const tries = Math.max(1, Math.min(6, Math.floor(spec.candidateCells / (w * h))));
   let best = null;
   for (let t = 0; t < tries; t++) {
@@ -271,7 +274,7 @@ function breakLongRuns(s, rng) {
 function chooseClues(w, h, black, orb, spec, rng, progress) {
   const n = w * h;
   const nb = neighbourTable(w, h);
-  const hard = spec.level === TRIAL;
+  const whatIf = spec.level === TRIAL;
   const value = new Int16Array(n);
   for (let i = 0; i < n; i++) if (!black[i]) value[i] = visibleCount(w, h, i, (j) => black[j]);
   const orbitOf = new Int32Array(n);
@@ -298,10 +301,12 @@ function chooseClues(w, h, black, orb, spec, rng, progress) {
 
   // Hard: contradiction search only on the gaps left by removed numbers (see
   // greedyRemove). Small grids can afford gaps of any size.
-  const holeMax = !hard ? 0 : n <= ANY_HOLE_CELLS ? n : HOLE_MAX;
+  const holeMax = !whatIf ? 0 : n <= ANY_HOLE_CELLS ? n : HOLE_MAX;
+  const whatIfs = { left: spec.cellsPerWhatIf ? Math.ceil(n / spec.cellsPerWhatIf) : Infinity };
   const clues = new Int16Array(n);
   const solver = new Solver(w, h).load(clues);
-  solver.zoneOnly = hard;
+  solver.zoneOnly = whatIf;
+  if (spec.trialBudget) solver.trialBudget = spec.trialBudget;
   const run = () => {
     if (!solver.run(spec.level)) throw new Error('generator: contradiction');
   };
@@ -398,8 +403,8 @@ function chooseClues(w, h, black, orb, spec, rng, progress) {
     solver.rollback(root);
 
     // Phase B: drop numbers the solver can do without, whole orbits first.
-    // Singles break symmetry, so only hard (which must be minimal) always
-    // tries them.
+    // Singles break symmetry, so only the what-if levels (which must be
+    // minimal) always try them.
     const byOrbit = new Map();
     for (const i of stageClues) {
       if (!byOrbit.has(orbitOf[i])) byOrbit.set(orbitOf[i], []);
@@ -409,7 +414,7 @@ function chooseClues(w, h, black, orb, spec, rng, progress) {
       key: Math.min(...members.map((i) => used.get(i))),
       members,
     }))).sort((a, b) => b.key - a.key);
-    const opts = { level: spec.level, holeMax, nearCells };
+    const opts = { level: spec.level, holeMax, nearCells, whatIfs };
     const removed = greedyRemove(solver, clues, groups.map((g) => g.members), opts,
       (f) => progress(p0 + (0.1 + 0.6 * f) * span));
 
@@ -417,7 +422,7 @@ function chooseClues(w, h, black, orb, spec, rng, progress) {
     groups.forEach((g, gi) => {
       if (removed[gi]) return;
       for (const i of g.members) {
-        if (g.members.length > 1 && (hard || rng.chance(0.3))) singles.push(i);
+        if (g.members.length > 1 && (whatIf || rng.chance(0.3))) singles.push(i);
         else solver.addClue(i, clues[i]);
       }
     });
@@ -432,6 +437,11 @@ function chooseClues(w, h, black, orb, spec, rng, progress) {
     complete(k);
   }
 
+  // Levels with a what-if allowance: make sure the finished puzzle keeps to it.
+  if (whatIf && spec.cellsPerWhatIf) {
+    limitWhatIfs(w, h, clues, value, black, Math.ceil(n / spec.cellsPerWhatIf), spec.trialBudget);
+  }
+
   // Phase C: easy and medium keep some redundant numbers, placed at random.
   let minimal = 0;
   for (let i = 0; i < n; i++) if (clues[i]) minimal++;
@@ -439,7 +449,72 @@ function chooseClues(w, h, black, orb, spec, rng, progress) {
   const free = whites.filter((i) => !clues[i]);
   for (const i of rng.shuffle(free).slice(0, extra)) clues[i] = value[i];
   progress(1);
-  return { clues, needsTrial: hard && !solver.load(clues).solve(CONNECT) };
+  return { clues, needsTrial: whatIf && !solver.load(clues).solve(CONNECT) };
+}
+
+/**
+ * Solve the puzzle the way a person would: normal reasoning (CONNECT) until
+ * stuck, then one short what-if, counted. Once the allowance is used up,
+ * being stuck puts back the number that would tell the most about the
+ * undecided cells instead. The removal phase counts what-ifs only
+ * approximately (earlier ones can quietly help close later gaps); this pass
+ * makes the limit exact. Adding numbers keeps the solution unique.
+ * Returns the number of what-ifs the solve used.
+ */
+function limitWhatIfs(w, h, clues, value, black, allowance, budget) {
+  // A capped what-if is not monotone (more numbers can use up its steps on
+  // other checks), so repeat from scratch until a pass needs no additions.
+  for (;;) {
+    const { used, added } = whatIfPass(w, h, clues, value, black, allowance, budget);
+    if (!added) return used;
+  }
+}
+
+function whatIfPass(w, h, clues, value, black, allowance, budget) {
+  const n = w * h;
+  const nb = neighbourTable(w, h);
+  const s = new Solver(w, h).load(clues);
+  s.trialBudget = budget;
+  const info = (i) => {
+    let score = s.st[i] === UNKNOWN ? 1 : 0;
+    for (let d = 0; d < 4; d++) {
+      for (let j = nb[4 * i + d]; j >= 0; j = nb[4 * j + d]) {
+        if (s.st[j] === UNKNOWN) score++;
+        if (black[j]) break;
+      }
+    }
+    return score;
+  };
+  let used = 0;
+  let added = 0;
+  for (;;) {
+    if (!s.run(CONNECT)) throw new Error('generator: contradiction');
+    if (s.unknown === 0) return { used, added };
+    let found = false;
+    for (let i = 0; i < n && used < allowance && !found; i++) {
+      if (s.st[i] !== UNKNOWN) continue;
+      for (const v of [BLACK, WHITE]) {
+        if (s.refutes(i, v)) {
+          s.set(i, v === BLACK ? WHITE : BLACK);
+          used++;
+          found = true;
+          break;
+        }
+      }
+    }
+    if (found) continue;
+    let best = -1;
+    let bestScore = 0;
+    for (let i = 0; i < n; i++) {
+      if (black[i] || clues[i]) continue;
+      const sc = info(i);
+      if (sc > bestScore) { bestScore = sc; best = i; }
+    }
+    if (best < 0) throw new Error('generator: no number left to add');
+    clues[best] = value[best];
+    s.addClue(best, value[best]);
+    added++;
+  }
 }
 
 /**
@@ -459,7 +534,7 @@ function chooseClues(w, h, black, orb, spec, rng, progress) {
  * The solver must be at the base state on entry and is returned to it.
  * Returns removed flags and clears removed numbers from clues.
  */
-function greedyRemove(solver, clues, groups, { level, holeMax, nearCells }, progress) {
+function greedyRemove(solver, clues, groups, { level, holeMax, nearCells, whatIfs }, progress) {
   const G = groups.length;
   const removed = new Uint8Array(G);
   if (G === 0) return removed;
@@ -471,14 +546,16 @@ function greedyRemove(solver, clues, groups, { level, holeMax, nearCells }, prog
     for (const i of groups[k]) solver.addClue(i, clues[i]);
   };
   const closesHole = (group) => {
-    if (!holeMax || solver.targetUnknown > holeMax) return false;
+    if (!holeMax || whatIfs.left <= 0 || solver.targetUnknown > holeMax) return false;
     const zl = solver.zoneLen;
     const m = solver.mark();
     for (const i of nearCells(group)) if (solver.st[i] === UNKNOWN) solver.addZone(i);
     const hits = (solver.trialHits = []);
     run();
     solver.trialHits = null;
-    const ok = solver.targetUnknown === 0;
+    // Each contradiction it took counts against the puzzle's what-if allowance.
+    const ok = solver.targetUnknown === 0 && hits.length <= whatIfs.left;
+    if (ok) whatIfs.left -= hits.length;
     solver.rollback(m);
     // Keep just the cells contradiction actually settled: replaying those
     // re-closes the hole in later states without searching the rest.

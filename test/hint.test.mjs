@@ -11,8 +11,8 @@ test('mistakes are wrong fills and wrong player dots only', () => {
   const g = new Game(p);
   assert.deepEqual(findMistakes(g, p.solution), []);
   const white = p.solution.findIndex((b, i) => !b && !p.clues[i] && g.cells[i] === EMPTY);
-  const black = p.solution.findIndex((b) => b);
   g.click(white, true); // fill an unshaded cell
+  const black = p.solution.findIndex((b, i) => b && g.cells[i] === EMPTY);
   g.click(black); // own dot on a shaded cell
   assert.deepEqual(findMistakes(g, p.solution).sort((a, b) => a - b), [white, black].sort((a, b) => a - b));
 });

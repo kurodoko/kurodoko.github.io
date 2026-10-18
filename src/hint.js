@@ -4,7 +4,7 @@
 // look. It tries the simplest reasoning first (one number on its own, then
 // connectivity, then a what-if) and prefers places near the last move.
 
-import { Solver, BLACK, WHITE, UNKNOWN } from './solver.js';
+import { Solver, BLACK, WHITE, UNKNOWN, TRIAL_BUDGET, SHORT_TRIAL_BUDGET } from './solver.js';
 import { FILLED, DOT, AUTO } from './game.js';
 
 /**
@@ -59,9 +59,12 @@ export function findHint(game) {
   }
   // 2. A cell whose shading would cut the unshaded cells apart.
   for (const i of order) if (s.st[i] === UNKNOWN && s.isCut(i)) return { kind: 'area', cell: i };
-  // 3. A cell where assuming one value breaks a rule.
-  for (const i of order) {
-    if (s.st[i] === UNKNOWN && (s.refutes(i, BLACK) || s.refutes(i, WHITE))) return { kind: 'area', cell: i };
+  // 3. A cell where assuming one value breaks a rule, short what-ifs first.
+  for (const budget of [SHORT_TRIAL_BUDGET, TRIAL_BUDGET]) {
+    s.trialBudget = budget;
+    for (const i of order) {
+      if (s.st[i] === UNKNOWN && (s.refutes(i, BLACK) || s.refutes(i, WHITE))) return { kind: 'area', cell: i };
+    }
   }
   // Not reachable for generated puzzles; still point somewhere useful.
   return { kind: 'area', cell: order.find((i) => s.st[i] === UNKNOWN) };

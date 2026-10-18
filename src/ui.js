@@ -36,6 +36,19 @@ function hsl(h, s, l) {
   return [f(0), f(8), f(4)];
 }
 
+/** [r, g, b] → [hue (degrees), saturation, lightness (0–1)]. */
+function toHsl([r, g, b]) {
+  const [R, G, B] = [r / 255, g / 255, b / 255];
+  const max = Math.max(R, G, B);
+  const min = Math.min(R, G, B);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h = max === R ? ((G - B) / d + 6) % 6 : max === G ? (B - R) / d + 2 : (R - G) / d + 4;
+  return [h * 60, s, l];
+}
+
 const mix = (a, b, t) => a.map((v, k) => v + (b[k] - v) * t);
 const smooth = (a, b, t) => {
   const x = Math.min(1, Math.max(0, (t - a) / (b - a)));
@@ -174,8 +187,9 @@ export class Board {
   }
 
   /**
-   * Just solved: the shaded cells fade into an iridescent patchwork of hues
-   * (each cell offset by a scattered phase plus a diagonal sweep), shimmer,
+   * Just solved: the shaded cells fade into a muted patchwork of hues around
+   * the green (each cell offset by a scattered phase plus a diagonal sweep),
+   * shimmer,
    * then settle on the solved green. With reduced motion, a short fade.
    */
   celebrate() {
@@ -190,6 +204,10 @@ export class Board {
     const style = getComputedStyle(this.svg);
     const from = hexColor(style.getPropertyValue('--filled'));
     const to = hexColor(style.getPropertyValue('--ok'));
+    // A soft patchwork around the solved green: hues drift either side of it,
+    // never more saturated or brighter than the green itself.
+    const [okHue, okSat, okLight] = toHsl(to);
+    const patch = (phase, t) => hsl(okHue - 10 + 40 * Math.sin(((phase + t * 540) * Math.PI) / 180), okSat * 0.7, okLight);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const duration = reduce ? 800 : 2600;
     const start = performance.now();
@@ -199,7 +217,7 @@ export class Board {
       for (const { rect, phase } of items) {
         const rgb = reduce
           ? mix(from, to, smooth(0, 1, t))
-          : mix(mix(from, hsl(phase + t * 540, 0.75, 0.58), smooth(0, 0.18, t)), to, smooth(0.68, 1, t));
+          : mix(mix(from, patch(phase, t), smooth(0, 0.18, t)), to, smooth(0.6, 1, t));
         rect.style.fill = `rgb(${rgb.map(Math.round).join(',')})`;
       }
       if (t < 1) this.anim = requestAnimationFrame(frame);
