@@ -83,34 +83,14 @@ test('undo and redo restore whole strokes including automatic dots', () => {
   assert.ok(!g.redo());
 });
 
-test('a number completed by shading dots every cell it sees, until it is undone', () => {
-  const g = board();
-  g.click(at(2, 0)); // a manual dot in the 4's column
-  g.click(at(0, 2), true); // fill: the row view is just (0,1)
-  g.click(at(3, 0), true); // fill: column view (1,0), (2,0); 1 + 1 + 2 = 4
-  assert.equal(g.analyze().clueState[0], CLUE_DONE);
-  assert.equal(g.cells[at(1, 0)], AUTO, 'seen by the completed 4');
-  assert.equal(g.cells[at(2, 0)], DOT, 'manual dot stays manual');
-  g.undo();
-  assert.equal(g.cells[at(1, 0)], EMPTY, 'undo removes it again');
-  g.redo();
-  g.click(at(3, 0)); // unfill: the 4 now sees 5 cells
-  assert.equal(g.cells[at(1, 0)], EMPTY, 'reason gone, automatic dot removed');
-  assert.equal(g.cells[at(0, 1)], AUTO, 'still next to a filled cell');
-  assert.equal(g.cells[at(2, 0)], DOT);
-});
-
-test('numbers complete from the start dot their cells on load and after reset', () => {
+test('completed numbers do not dot the cells they see', () => {
   // 3×3 with a 5 in the middle: it sees all 5 cells of its row and column.
   const g = new Game({ w: 3, h: 3, clues: [0, 0, 0, 0, 5, 0, 0, 0, 0] });
-  const cross = [1, 3, 5, 7];
-  assert.ok(cross.every((i) => g.cells[i] === AUTO));
-  assert.ok([0, 2, 6, 8].every((i) => g.cells[i] === EMPTY));
-  assert.equal(g.history.length, 0, 'not an undo step');
+  assert.ok(g.cells.every((v) => v === EMPTY));
+  assert.equal(g.analyze().clueState[4], CLUE_DONE);
   g.click(0, true);
-  g.reset();
-  assert.ok(cross.every((i) => g.cells[i] === AUTO), 'still dotted after reset');
-  assert.equal(g.cells[0], EMPTY);
+  assert.deepEqual([1, 3].map((i) => g.cells[i]), [AUTO, AUTO], 'dots only next to the filled cell');
+  assert.deepEqual([5, 7].map((i) => g.cells[i]), [EMPTY, EMPTY]);
 });
 
 test('each click is one undo step', () => {

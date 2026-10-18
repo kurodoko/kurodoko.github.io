@@ -23,10 +23,8 @@ same puzzle.
   use the browser's pinch zoom (touch screen or trackpad). Every 4th grid
   line is heavier to help counting.
 - Dotted cells have a slightly paler background than untouched ones.
-- Dots appear automatically (drawn smaller) next to shaded cells, and on
-  every cell a number sees once shading (or the edge) closes its view at
-  exactly that count. They go away when their reason does; dots you placed
-  are never changed.
+- Dots appear automatically (drawn smaller) next to shaded cells and go away
+  when the shading does; dots you placed are never changed.
 - A number turns grey as soon as it plus the dots in an unbroken line from it
   add up to the number (no shaded cells needed at the ends), or when shading
   closes its view at exactly that count. It turns blue when it can no longer

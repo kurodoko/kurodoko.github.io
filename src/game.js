@@ -2,10 +2,8 @@
 //
 // Each non-number cell is EMPTY, DOT (placed by the player), AUTO (a dot
 // placed automatically) or FILLED. After every move the automatic dots are
-// recomputed: a cell gets one when it touches a filled cell, or when a number
-// sees it and filled cells (or the edge) close that number's view at exactly
-// its count. Automatic dots whose reason has gone are removed. Player dots
-// are never touched.
+// recomputed: a cell gets one when it touches a filled cell, and loses it
+// when it no longer does. Player dots are never touched.
 
 import { neighbourTable, components, isValidSolution } from './grid.js';
 
@@ -45,8 +43,7 @@ export class Game {
     this.lastMove = -1;
     this.hints = 0;
     if (saved) this.restore(saved);
-    // Numbers that are complete from the start (they see exactly their count
-    // on an empty board) dot their cells straight away.
+    // Saves from older versions may hold automatic dots the rules no longer give.
     this.updateAutoDots();
   }
 
@@ -70,24 +67,13 @@ export class Game {
 
   /** Cells that need an automatic dot (see the header comment). */
   autoDotCells() {
-    const { n, cells, clues, nb } = this;
+    const { n, cells, nb } = this;
     const need = new Uint8Array(n);
     for (let i = 0; i < n; i++) {
       if (cells[i] !== FILLED) continue;
       for (let d = 0; d < 4; d++) {
         const j = nb[4 * i + d];
         if (j >= 0) need[j] = 1;
-      }
-    }
-    for (let p = 0; p < n; p++) {
-      if (!clues[p]) continue;
-      let seen = 1;
-      for (let d = 0; d < 4; d++) {
-        for (let j = nb[4 * p + d]; j >= 0 && cells[j] !== FILLED; j = nb[4 * j + d]) seen++;
-      }
-      if (seen !== clues[p]) continue;
-      for (let d = 0; d < 4; d++) {
-        for (let j = nb[4 * p + d]; j >= 0 && cells[j] !== FILLED; j = nb[4 * j + d]) need[j] = 1;
       }
     }
     return need;
