@@ -384,8 +384,8 @@ body.busy .board-wrap {
 #board.solved .grid-border {
   stroke: var(--ok);
   stroke-width: 3;
-  /* Turns green with the last ring of the solve animation. */
-  transition: stroke 1.6s ease-in-out 4.7s, stroke-width 1.6s ease-in-out 4.7s;
+  /* Turns green as the solve animation settles. */
+  transition: stroke 1.1s ease-in-out 3.4s, stroke-width 1.1s ease-in-out 3.4s;
 }
 
 @media (prefers-reduced-motion: reduce) {
