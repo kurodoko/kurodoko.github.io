@@ -324,6 +324,17 @@ $('random-seed').addEventListener('click', () => {
   start({ ...formParams(), seed: randomSeed() }, { push: true });
 });
 
+/** Seed + 1 (a seed that would outgrow 15 digits starts again at 0). */
+function nextSeed(seed) {
+  const next = /^-?\d{1,15}$/.test(seed) ? String(BigInt(seed) + 1n) : '0';
+  return /^-?\d{1,15}$/.test(next) ? next : '0';
+}
+
+$('next-seed').addEventListener('click', () => {
+  const p = formParams();
+  start({ ...p, seed: nextSeed(p.seed) }, { push: true });
+});
+
 // --- toolbar ------------------------------------------------------------------
 
 function act(fn) {

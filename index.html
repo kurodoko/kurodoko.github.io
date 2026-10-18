@@ -27,10 +27,13 @@
             <option value="hard">Hard</option>
           </select>
         </label>
-        <label class="seed">Seed <input id="seed" inputmode="numeric" pattern="-?[0-9]{1,15}" title="Any whole number"></label>
+        <div class="seed-group">
+          <label class="seed">Seed <input id="seed" inputmode="numeric" pattern="-?[0-9]{1,15}" title="Any whole number"></label>
+          <button type="button" id="random-seed" title="Generate with a random seed">Random</button>
+          <button type="button" id="next-seed" title="Generate with the next seed (seed + 1)">Next</button>
+        </div>
         <div class="buttons">
-          <button type="button" id="random-seed" title="New puzzle with a random seed">Random</button>
-          <button type="submit" id="new" class="primary">New puzzle</button>
+          <button type="submit" id="new" class="primary">Generate</button>
         </div>
       </form>
 

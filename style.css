@@ -170,6 +170,12 @@ a {
   width: 9em;
 }
 
+.controls .seed-group {
+  display: flex;
+  gap: 6px;
+  align-items: end;
+}
+
 .controls .buttons {
   display: flex;
   gap: 8px;
