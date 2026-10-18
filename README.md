@@ -51,30 +51,35 @@ results are identical across browsers and in Node. The same code therefore also
 runs from the command line or in GitHub Actions if puzzles ever need to be made
 in advance.
 
-1. **Shading.** Shaded cells are placed under a symmetry (180° rotation,
-   mirrors, both mirrors, 90° rotation or diagonal on square grids) or as a
-   repeated motif. Each extra member of a symmetric group is kept only 85% of
-   the time, so the symmetry is loose rather than exact. No straight run of
+1. **Shading.** Shaded cells are placed at random. Symmetric or repeated
+   shading would make parts of the puzzle copies of each other, so candidates
+   whose shading happens to look symmetric are penalised. No straight run of
    unshaded cells is longer than 16, which keeps every number at most 31.
-2. **Numbers.** Working in rings from the border inward, numbers are added
-   until the solver can determine every cell of the ring, then removed again
-   while it still can, symmetric groups first. Removal tests use
-   divide-and-conquer over an undo trail, so most tests reuse earlier work.
+2. **Numbers.** Their positions carry a hint of symmetry (180° rotation,
+   mirrors, both mirrors, 90° rotation or diagonal on square grids): each
+   further member of a symmetric group is added only half the time. Working
+   in rings from the border inward, numbers are added until the solver can
+   determine every cell of the ring, then removed again while it still can,
+   symmetric groups first. Removal tests use divide-and-conquer over an undo
+   trail, so most tests reuse earlier work.
 3. **Difficulty.** Easy and medium need only direct reasoning (number counts,
    no touching shaded cells, connectivity) and keep 60% and 25% spare numbers.
    Hard keeps none and allows what-if reasoning (assume a cell, find a
    contradiction), which most hard puzzles need.
-4. Several candidates are built for small grids and the one whose numbers and
-   shading are most symmetric or most motif-like wins.
+4. Several candidates are built for small grids. The winner has loosely
+   symmetric number positions (rewarded up to 60% of numbers having a mirror
+   partner, penalised above 80% so it never looks exact), no accidental
+   shading symmetry, and few numbers.
 
 The solver (`src/solver.js`) only makes deductions that are logically forced,
 so a puzzle it fills completely has exactly one solution. The tests check this
 against an independent brute-force search.
 
-Generation time measured in headless Chromium and Node: 60×60 averages about
-140 ms (easy), 160 ms (medium) and 320 ms (hard), never above about 400 ms in
-the benchmark. Most smaller sizes take under 60 ms; the slowest are hard
-20×20 to 24×24 at 200–450 ms.
+Generation time measured in Node (headless Chromium is similar): 60×60
+averages about 170 ms (easy and medium) and 330 ms (hard), at most about
+440 ms in the benchmark. Most smaller sizes take under 60 ms; the slowest are
+hard 16×16 to 20×20 at up to about 250 ms, where contradiction search is
+allowed on gaps of any size.
 
 **Versioning:** any change that alters generated puzzles must bump
 `GENERATOR_VERSION` in `src/generator.js`. Links carry `v=`, and the page warns

@@ -6,20 +6,24 @@
 // say they were made by a different version.
 //
 // Steps per candidate:
-//   1. Shade cells (no two adjacent, unshaded cells connected) following a
-//      loosely applied symmetry or a repeated motif.
+//   1. Shade cells at random (no two adjacent, unshaded cells connected).
+//      The shading is deliberately not symmetric: symmetric or repeated
+//      shading makes parts of the puzzle copies of each other.
+//      Only the positions of the numbers follow a (very loose) symmetry.
 //   2. Add numbers one orbit at a time until the deductive solver finishes,
 //      then remove numbers it can do without (orbits first, then singles).
 //      Both happen ring by ring from the border inward; see chooseClues.
 //   3. Easy and medium add back redundant numbers in proportion.
-// Several candidates are built for small grids and the best scoring one wins.
+// Several candidates are built for small grids and the best scoring one wins:
+// loosely symmetric number positions, no accidental shading symmetry, few
+// numbers.
 
 import { Rng } from './rng.js';
 import { Solver, CONNECT, TRIAL, UNKNOWN } from './solver.js';
 import { neighbourTable, visibleCount, MIN_SIZE, MAX_SIZE } from './grid.js';
-import { availableGroups, orbits, symmetryScore, motifScore } from './symmetry.js';
+import { availableGroups, orbits, symmetryScore } from './symmetry.js';
 
-export const GENERATOR_VERSION = 1;
+export const GENERATOR_VERSION = 2;
 
 export const DIFFICULTIES = {
   // level: strongest solving technique allowed.
@@ -30,8 +34,18 @@ export const DIFFICULTIES = {
   hard: { level: TRIAL, extra: 0, candidateCells: 400 },
 };
 
-/** Probability of keeping each further member of a symmetric orbit. */
-const LOOSE = 0.85;
+/** Probability of adding each further member of a number's symmetry orbit. */
+const PARTNER = 0.5;
+
+/**
+ * Number-position symmetry: a hint gives the puzzle shape, exactness is dull.
+ * It earns score up to SYMMETRY_CAP and loses score above SYMMETRY_EXACT.
+ */
+const SYMMETRY_CAP = 0.6;
+const SYMMETRY_EXACT = 0.8;
+
+/** Shading symmetry above this (chance is about the shading density) is penalised. */
+const SHADING_SYMMETRY_LIMIT = 0.35;
 
 /**
  * Longest straight run of unshaded cells. Keeps every number at most
@@ -46,7 +60,7 @@ const RING_WIDTH = 5;
 const HOLE_MAX = 16;
 
 /** Hard grids up to this many cells let a removal leave a gap of any size. */
-const ANY_HOLE_CELLS = 576;
+const ANY_HOLE_CELLS = 400;
 
 export function checkParams({ w, h, seed, difficulty }) {
   for (const [name, v] of [['width', w], ['height', h]]) {
@@ -85,14 +99,11 @@ export function generate({ w, h, seed, difficulty = 'medium', onProgress = () =>
 }
 
 function buildCandidate(w, h, spec, rng, progress) {
-  const modes = [...availableGroups(w, h), ['motif', 2]];
-  const mode = modes[rng.weighted(modes.map((m) => m[1]))][0];
-  const group = mode === 'motif' ? 'rot2' : mode;
+  const groups = availableGroups(w, h);
+  const group = groups[rng.weighted(groups.map((g) => g[1]))][0];
   const orb = orbits(w, h, group);
-  const shading = mode === 'motif'
-    ? motifLayout(w, h, rng.fork('layout'))
-    : symmetricLayout(w, h, orb, rng.fork('layout'));
-  breakLongRuns(shading, orb, rng.fork('runs'));
+  const shading = randomShading(w, h, rng.fork('layout'));
+  breakLongRuns(shading, rng.fork('runs'));
   const black = shading.black;
   progress(0.05);
   const { clues, needsTrial } = chooseClues(w, h, black, orb, spec, rng.fork('clues'), (f) => progress(0.05 + 0.95 * f));
@@ -104,12 +115,14 @@ function buildCandidate(w, h, spec, rng, progress) {
     if (clues[i]) clueCount++;
     if (!black[i]) whiteCount++;
   }
+  const clueSym = symmetryScore(w, h, clueMask);
   const score =
-    1.0 * symmetryScore(w, h, clueMask) +
-    0.5 * Math.max(symmetryScore(w, h, black), motifScore(w, h, black)) -
+    Math.min(SYMMETRY_CAP, clueSym) -
+    2 * Math.max(0, clueSym - SYMMETRY_EXACT) -
+    Math.max(0, symmetryScore(w, h, black) - SHADING_SYMMETRY_LIMIT) -
     0.5 * (clueCount / whiteCount) +
     (spec.level === TRIAL && needsTrial ? 0.3 : 0);
-  return { clues, black, score, layout: mode };
+  return { clues, black, score, layout: group };
 }
 
 /** Incrementally builds a valid shading: no adjacent shaded cells, unshaded connected. */
@@ -201,70 +214,20 @@ function targetCount(w, h, rng) {
   return Math.round(w * h * (0.17 + 0.07 * rng.float()));
 }
 
-function symmetricLayout(w, h, orb, rng) {
+/** Random shading: no symmetry, no repeated patterns. */
+function randomShading(w, h, rng) {
   const s = new Shading(w, h);
   const target = targetCount(w, h, rng);
-  for (const o of rng.shuffle(orb.slice())) {
+  for (const i of rng.shuffle(Array.from({ length: w * h }, (_, i) => i))) {
     if (s.count >= target) break;
-    const start = rng.int(o.length);
-    for (let k = 0; k < o.length; k++) {
-      if (k > 0 && !rng.chance(LOOSE)) continue;
-      const i = o[(start + k) % o.length];
-      if (s.canPlace(i)) s.place(i);
-    }
+    if (s.canPlace(i)) s.place(i);
   }
   return s;
 }
 
-function motifLayout(w, h, rng) {
-  const s = new Shading(w, h);
-  const target = targetCount(w, h, rng);
-  const p = 3 + rng.int(4);
-  const q = rng.chance(0.5) ? p : 3 + rng.int(4);
-  // A motif on a p×q torus with no two cells adjacent (wrapping included).
-  const want = Math.max(1, Math.round((p * q * target) / (w * h)));
-  const motif = [];
-  const tileCells = [];
-  for (let r = 0; r < p; r++) for (let c = 0; c < q; c++) tileCells.push([r, c]);
-  for (const [r, c] of rng.shuffle(tileCells)) {
-    if (motif.length >= want) break;
-    const clash = motif.some(([r2, c2]) => {
-      const dr = Math.min((r - r2 + p) % p, (r2 - r + p) % p);
-      const dc = Math.min((c - c2 + q) % q, (c2 - c + q) % q);
-      return dr + dc <= 1;
-    });
-    if (!clash) motif.push([r, c]);
-  }
-  const r0 = rng.int(p);
-  const c0 = rng.int(q);
-  for (let R = r0 - p; R < h; R += p) {
-    for (let C = c0 - q; C < w; C += q) {
-      for (const [tr, tc] of motif) {
-        const r = R + tr;
-        const c = C + tc;
-        if (r < 0 || r >= h || c < 0 || c >= w) continue;
-        if (rng.chance(0.1)) continue;
-        const i = r * w + c;
-        if (s.canPlace(i)) s.place(i);
-      }
-    }
-  }
-  // Top up sparse motifs with random cells.
-  if (s.count < 0.75 * target) {
-    const cells = rng.shuffle(Array.from({ length: w * h }, (_, i) => i));
-    for (const i of cells) {
-      if (s.count >= 0.75 * target) break;
-      if (s.canPlace(i)) s.place(i);
-    }
-  }
-  return s;
-}
-
-/** Shade cells (with loose symmetric partners) inside runs longer than MAX_RUN. */
-function breakLongRuns(s, orb, rng) {
+/** Shade cells inside runs longer than MAX_RUN. */
+function breakLongRuns(s, rng) {
   const { w, h, black } = s;
-  const orbitOf = new Int32Array(w * h);
-  orb.forEach((o, k) => { for (const i of o) orbitOf[i] = k; });
   const lines = [];
   for (let r = 0; r < h; r++) lines.push(Array.from({ length: w }, (_, c) => r * w + c));
   for (let c = 0; c < w; c++) lines.push(Array.from({ length: h }, (_, r) => r * w + c));
@@ -284,7 +247,6 @@ function breakLongRuns(s, orb, rng) {
             const i = line[q];
             if (!s.canPlace(i)) continue;
             s.place(i);
-            for (const j of orb[orbitOf[i]]) if (j !== i && rng.chance(LOOSE) && s.canPlace(j)) s.place(j);
             changed = true;
             break;
           }
@@ -402,7 +364,7 @@ function chooseClues(w, h, black, orb, spec, rng, progress) {
     while (solver.targetUnknown > 0) {
       const i = pick(k);
       for (const j of [i, ...orb[orbitOf[i]]]) {
-        if (clues[j] || black[j] || (j !== i && !rng.chance(LOOSE))) continue;
+        if (clues[j] || black[j] || (j !== i && !rng.chance(PARTNER))) continue;
         clues[j] = value[j];
         added.push(j);
         solver.addClue(j, value[j]);
@@ -470,29 +432,12 @@ function chooseClues(w, h, black, orb, spec, rng, progress) {
     complete(k);
   }
 
-  // Phase C: easy and medium keep some redundant numbers, completing
-  // symmetric pairs first.
+  // Phase C: easy and medium keep some redundant numbers, placed at random.
   let minimal = 0;
   for (let i = 0; i < n; i++) if (clues[i]) minimal++;
-  let extra = Math.round(spec.extra * minimal);
-  if (extra > 0) {
-    const pairs = [];
-    const others = [];
-    for (const i of whites) {
-      if (clues[i]) continue;
-      (orb[orbitOf[i]].some((j) => clues[j]) ? pairs : others).push(i);
-    }
-    for (const i of [...rng.shuffle(pairs), ...rng.shuffle(others)]) {
-      if (extra <= 0) break;
-      if (clues[i]) continue;
-      for (const j of orb[orbitOf[i]]) {
-        if (extra > 0 && !black[j] && !clues[j]) {
-          clues[j] = value[j];
-          extra--;
-        }
-      }
-    }
-  }
+  const extra = Math.round(spec.extra * minimal);
+  const free = whites.filter((i) => !clues[i]);
+  for (const i of rng.shuffle(free).slice(0, extra)) clues[i] = value[i];
   progress(1);
   return { clues, needsTrial: hard && !solver.load(clues).solve(CONNECT) };
 }

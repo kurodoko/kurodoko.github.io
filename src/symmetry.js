@@ -1,9 +1,9 @@
-// Symmetry groups, orbits and layout scores.
+// Symmetry groups, orbits and symmetry scores.
 //
-// The generator places shaded cells and numbers orbit by orbit, but keeps each
-// extra orbit member only with some probability, so symmetry is loose rather
-// than exact. These scores reward candidates that still read as symmetric or
-// as built from a repeated motif.
+// The generator places numbers orbit by orbit, adding each extra orbit member
+// only with some probability, so their positions are loosely symmetric. The
+// shading is random; symmetryScore is also used to reject candidates whose
+// shading happens to look symmetric.
 
 /** Index maps for the non-identity transforms valid on a w×h grid. */
 export function transformMaps(w, h) {
@@ -83,36 +83,6 @@ export function symmetryScore(w, h, mask) {
     let hit = 0;
     for (let i = 0; i < w * h; i++) if (mask[i] && mask[m[i]]) hit++;
     best = Math.max(best, hit / total);
-  }
-  return best;
-}
-
-/**
- * Repeated-motif score: how much better than chance the best translation
- * (at least 3 steps away, so trivial diagonal chains don't count) maps marked
- * cells onto marked cells. 0 = no better than random, 1 = perfect tiling.
- */
-export function motifScore(w, h, mask) {
-  let total = 0;
-  for (let i = 0; i < w * h; i++) if (mask[i]) total++;
-  const density = total / (w * h);
-  if (total === 0 || density >= 1) return 0;
-  let best = 0;
-  for (let dr = 0; dr <= 6; dr++) {
-    for (let dc = -6; dc <= 6; dc++) {
-      if (Math.abs(dr) + Math.abs(dc) < 3 || (dr === 0 && dc < 0)) continue;
-      let hit = 0;
-      let count = 0;
-      for (let r = 0; r + dr < h; r++) {
-        for (let c = Math.max(0, -dc); c < w && c + dc < w; c++) {
-          if (!mask[r * w + c]) continue;
-          count++;
-          if (mask[(r + dr) * w + c + dc]) hit++;
-        }
-      }
-      if (count < 4) continue;
-      best = Math.max(best, (hit / count - density) / (1 - density));
-    }
   }
   return best;
 }
