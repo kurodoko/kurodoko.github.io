@@ -126,13 +126,22 @@ export class Board {
       }
     }
 
+    // The border lies wholly outside the grid, so the edge cells keep an
+    // ordinary grid line like the others: its stroke is centred on the edge
+    // and clipped to the outer half. Drawn first, under the grid lines.
+    const outline = `M${MARGIN_LEFT} ${MARGIN_TOP}h${w * U}v${h * U}h${-w * U}Z`;
+    const clip = el('clipPath', { id: 'outside-grid' }, el('defs', {}, lineLayer));
+    el('path', { d: `M0 0H${this.width}V${this.height}H0Z${outline}`, 'clip-rule': 'evenodd' }, clip);
+    el('rect', {
+      x: MARGIN_LEFT, y: MARGIN_TOP, width: w * U, height: h * U, class: 'grid-border', 'clip-path': 'url(#outside-grid)',
+    }, lineLayer);
+
     // Every 4th line is heavier, to help counting.
-    const lines = ['', ''];
+    const lines = [outline, ''];
     for (let c = 1; c < w; c++) lines[c % 4 === 0 ? 1 : 0] += `M${MARGIN_LEFT + c * U} ${MARGIN_TOP}v${h * U}`;
     for (let r = 1; r < h; r++) lines[r % 4 === 0 ? 1 : 0] += `M${MARGIN_LEFT} ${MARGIN_TOP + r * U}h${w * U}`;
     el('path', { d: lines[0], class: 'grid-line' }, lineLayer);
     el('path', { d: lines[1], class: 'grid-line major' }, lineLayer);
-    el('rect', { x: MARGIN_LEFT, y: MARGIN_TOP, width: w * U, height: h * U, class: 'grid-border' }, lineLayer);
 
     this.colLabels = [];
     this.rowLabels = [];
