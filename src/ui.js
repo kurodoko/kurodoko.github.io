@@ -117,6 +117,7 @@ export class Board {
       if (game.clues[i]) {
         const t = el('text', { x: x + U / 2, y: y + U / 2, class: 'clue' }, markLayer);
         t.textContent = game.clues[i];
+        if (game.clues[i] >= 100) t.style.fontSize = '16px';
         this.texts.push(t);
         this.dots.push(null);
       } else {
@@ -187,52 +188,53 @@ export class Board {
   }
 
   /**
-   * Just solved: colour ripples in from the top-left corner, a muted
-   * patchwork of hues around the green with bands of light passing across
-   * it, then everything settles the same way: shaded cells on the solved
-   * green, dots back to their usual colour. With reduced motion, the shaded
-   * cells just fade to green.
+   * Just solved: rings ripple out from the last move. Where the first ring
+   * passes, shaded cells and dots leave their usual colours for a muted
+   * green; the rings that follow carry bands of hue (yellow-green to blue)
+   * and light that grow stronger for a few seconds. A last ring then leaves
+   * everything on the solved greens. With reduced motion, a short fade.
    */
   celebrate() {
     this.stopCelebration();
-    const { w, h, n, cells } = this.game;
+    const { w, h, n, cells, lastMove } = this.game;
     const style = getComputedStyle(this.svg);
-    const filled = hexColor(style.getPropertyValue('--filled'));
-    const dot = hexColor(style.getPropertyValue('--dot'));
-    const ok = hexColor(style.getPropertyValue('--ok'));
-    // Hues drift either side of the solved green, never more saturated than
-    // the green itself. Dots take a lightness between their own and the
-    // green's so they stay visible on the dotted background.
-    const [okHue, okSat, okLight] = toHsl(ok);
-    const dotLight = (toHsl(dot)[2] + okLight) / 2;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const span = Math.max(1, w + h - 2);
+    const color = (name) => hexColor(style.getPropertyValue(name));
+    const kinds = {
+      filled: { from: color('--filled'), to: color('--ok') },
+      dot: { from: color('--dot'), to: color('--ok-dot') },
+    };
+    for (const k of Object.values(kinds)) [k.hue, k.sat, k.light] = toHsl(k.to);
+    const r0 = lastMove >= 0 ? Math.floor(lastMove / w) : (h - 1) / 2;
+    const c0 = lastMove >= 0 ? lastMove % w : (w - 1) / 2;
+    const far = Math.max(1, ...[[0, 0], [0, w - 1], [h - 1, 0], [h - 1, w - 1]].map(([r, c]) => Math.hypot(r - r0, c - c0)));
     const items = [];
     for (let i = 0; i < n; i++) {
-      // sweep: 0 at the top-left corner, 1 at the bottom-right.
-      const sweep = (Math.floor(i / w) + (i % w)) / span;
-      const phase = ((Math.imul(i + 1, 2654435761) >>> 0) / 4294967296) * 2 * Math.PI;
-      if (cells[i] === FILLED) {
-        items.push({ node: this.rects[i], sweep, phase, from: filled, to: ok, sat: okSat * 0.7, light: okLight });
-      } else if ((cells[i] === DOT || cells[i] === AUTO) && this.dots[i] && !reduce) {
-        items.push({ node: this.dots[i], sweep, phase, from: dot, to: dot, sat: okSat * 0.6, light: dotLight });
-      }
+      const kind = cells[i] === FILLED ? kinds.filled : (cells[i] === DOT || cells[i] === AUTO) && this.dots[i] ? kinds.dot : null;
+      if (!kind) continue;
+      // u: distance from the last move, 0 there and 1 at the farthest corner.
+      const u = Math.hypot(Math.floor(i / w) - r0, (i % w) - c0) / far;
+      const scatter = ((Math.imul(i + 1, 2654435761) >>> 0) / 4294967296) * 1.2;
+      items.push({ node: kind === kinds.filled ? this.rects[i] : this.dots[i], kind, u, scatter });
     }
-    const duration = reduce ? 800 : 4200;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const duration = reduce ? 800 : 6500;
     const start = performance.now();
     this.celebrating = items;
     const frame = (now) => {
       const t = Math.min(1, (now - start) / duration);
-      for (const { node, sweep, phase, from, to, sat, light } of items) {
+      for (const { node, kind, u, scatter } of items) {
         let rgb;
         if (reduce) {
-          rgb = mix(from, to, smooth(0, 1, t));
+          rgb = mix(kind.from, kind.to, smooth(0, 1, t));
         } else {
-          const arrive = smooth(0.3 * sweep, 0.3 * sweep + 0.25, t);
-          const settle = smooth(0.6 + 0.15 * sweep, 0.85 + 0.15 * sweep, t);
-          const hue = okHue - 10 + 40 * Math.sin(phase + 3 * Math.PI * t);
-          const glint = 0.06 * Math.sin(2 * Math.PI * (3 * t - sweep));
-          rgb = mix(mix(from, hsl(hue, sat, light + glint), arrive), to, settle);
+          const arrive = smooth(0.15 * u, 0.15 * u + 0.1, t);
+          const strength = smooth(0.1 * u, 0.1 * u + 0.45, t);
+          const settle = smooth(0.72 + 0.18 * u, 0.82 + 0.18 * u, t);
+          // Rings: two across the board at a time, one passing every second.
+          const wave = 2 * Math.PI * (2 * u - 7 * t);
+          const hue = kind.hue + 10 + 70 * strength * Math.sin(wave + scatter);
+          const light = kind.light + 0.07 * strength * Math.cos(wave);
+          rgb = mix(mix(kind.from, hsl(hue, kind.sat * 0.75, light), arrive), kind.to, settle);
         }
         node.style.fill = `rgb(${rgb.map(Math.round).join(',')})`;
       }

@@ -62,8 +62,9 @@ in advance.
 
 1. **Shading.** Shaded cells are placed at random. Symmetric or repeated
    shading would make parts of the puzzle copies of each other, so candidates
-   whose shading happens to look symmetric are penalised. No straight run of
-   unshaded cells is longer than 16, which keeps every number at most 31.
+   whose shading happens to look symmetric are penalised. Long open runs are
+   left as they fall, so large grids have the occasional big number (into the
+   40s on 60×60).
 2. **Numbers.** Their positions carry a hint of symmetry (180° rotation,
    mirrors, both mirrors, 90° rotation or diagonal on square grids): each
    further member of a symmetric group is added only half the time. Working
@@ -95,8 +96,8 @@ so a puzzle it fills completely has exactly one solution. The tests check this
 against an independent brute-force search.
 
 Generation time measured in Node (headless Chromium is similar): 60×60
-averages about 165 ms (easy and medium), 280 ms (hard) and 290 ms
-(fiendish), at most about 360 ms in the benchmark. Most smaller sizes take
+averages about 150 ms (easy and medium), 300 ms (hard) and 320 ms
+(fiendish), at most about 480 ms in the benchmark. Most smaller sizes take
 under 60 ms; the slowest are fiendish 16×16 to 20×20 at up to about 220 ms,
 where contradiction search is allowed on gaps of any size.
 

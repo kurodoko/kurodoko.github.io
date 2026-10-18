@@ -657,9 +657,14 @@ export class Solver {
     return found;
   }
 
-  /** Count solutions up to limit by search (for tests and small grids). */
+  /**
+   * Count solutions up to limit by search (for tests and small grids). Each
+   * step makes every deduction first, what-if refutations included: a
+   * refuted value is a branch already shown to hold no solution, and without
+   * them the search can take very long on puzzles that need long what-ifs.
+   */
   countSolutions(limit = 2) {
-    if (!this.run(CONNECT)) return 0;
+    if (!this.run(TRIAL)) return 0;
     if (this.unknown === 0) return 1;
     let i = 0;
     while (this.st[i] !== UNKNOWN) i++;

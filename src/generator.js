@@ -23,7 +23,7 @@ import { Solver, CONNECT, TRIAL, UNKNOWN, BLACK, WHITE, TRIAL_BUDGET, SHORT_TRIA
 import { neighbourTable, visibleCount, MIN_SIZE, MAX_SIZE } from './grid.js';
 import { availableGroups, orbits, symmetryScore } from './symmetry.js';
 
-export const GENERATOR_VERSION = 3;
+export const GENERATOR_VERSION = 4;
 
 export const DIFFICULTIES = {
   // level: strongest solving technique allowed.
@@ -49,12 +49,6 @@ const SYMMETRY_EXACT = 0.8;
 
 /** Shading symmetry above this (chance is about the shading density) is penalised. */
 const SHADING_SYMMETRY_LIMIT = 0.35;
-
-/**
- * Longest straight run of unshaded cells. Keeps every number at most
- * 15 + 15 + 1 = 31: easier to count on screen, and the solver's fast path.
- */
-const MAX_RUN = 16;
 
 /** Width of the border-distance rings the clue phases work through. */
 const RING_WIDTH = 5;
@@ -106,7 +100,6 @@ function buildCandidate(w, h, spec, rng, progress) {
   const group = groups[rng.weighted(groups.map((g) => g[1]))][0];
   const orb = orbits(w, h, group);
   const shading = randomShading(w, h, rng.fork('layout'));
-  breakLongRuns(shading, rng.fork('runs'));
   const black = shading.black;
   progress(0.05);
   const { clues, needsTrial } = chooseClues(w, h, black, orb, spec, rng.fork('clues'), (f) => progress(0.05 + 0.95 * f));
@@ -226,38 +219,6 @@ function randomShading(w, h, rng) {
     if (s.canPlace(i)) s.place(i);
   }
   return s;
-}
-
-/** Shade cells inside runs longer than MAX_RUN. */
-function breakLongRuns(s, rng) {
-  const { w, h, black } = s;
-  const lines = [];
-  for (let r = 0; r < h; r++) lines.push(Array.from({ length: w }, (_, c) => r * w + c));
-  for (let c = 0; c < w; c++) lines.push(Array.from({ length: h }, (_, r) => r * w + c));
-  for (let changed = true; changed;) {
-    changed = false;
-    for (const line of lines) {
-      for (let a = 0; a < line.length;) {
-        if (black[line[a]]) { a++; continue; }
-        let b = a;
-        while (b + 1 < line.length && !black[line[b + 1]]) b++;
-        if (b - a + 1 > MAX_RUN) {
-          const mid = (a + b) / 2 + rng.int(7) - 3;
-          const order = [];
-          for (let q = a + 2; q <= b - 2; q++) order.push(q);
-          order.sort((x, y) => Math.abs(x - mid) - Math.abs(y - mid) || x - y);
-          for (const q of order) {
-            const i = line[q];
-            if (!s.canPlace(i)) continue;
-            s.place(i);
-            changed = true;
-            break;
-          }
-        }
-        a = b + 1;
-      }
-    }
-  }
 }
 
 /**

@@ -19,6 +19,8 @@
   --clue: #1c1c1e;
   --clue-error: #1a66e8;
   --ok: #1d7f47;
+  /* Dots on a solved board. */
+  --ok-dot: #1d7f47;
   --hover: #efede8;
   color-scheme: light;
 }
@@ -47,6 +49,7 @@
     --clue: #111114;
     --clue-error: #0b4bc4;
     --ok: #4cc27f;
+    --ok-dot: #1f6e45;
     --hover: #26262a;
     color-scheme: dark;
   }
@@ -368,17 +371,28 @@ body.busy .board-wrap {
   stroke: var(--ink);
   stroke-width: 2.5;
   vector-effect: non-scaling-stroke;
-  /* Turns green gradually, in step with the solve animation. */
-  transition: stroke 4s ease-in, stroke-width 4s ease-in;
 }
 
 #board.solved .cell.filled {
   fill: var(--ok);
 }
 
+#board.solved .dot {
+  fill: var(--ok-dot);
+}
+
 #board.solved .grid-border {
   stroke: var(--ok);
   stroke-width: 3;
+  /* Turns green with the last ring of the solve animation. */
+  transition: stroke 1.6s ease-in-out 4.7s, stroke-width 1.6s ease-in-out 4.7s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #board.solved .grid-border {
+    transition-duration: 0.8s;
+    transition-delay: 0s;
+  }
 }
 
 /* One colour for all dots: player dots are told apart by size. */
