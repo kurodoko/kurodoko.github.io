@@ -128,10 +128,11 @@ export class Board {
       else look = v * 4 + a.adjacent[i] * 2 + a.isolated[i];
       if (look === this.look[i]) continue;
       this.look[i] = look;
+      // Numbers and dots share the pale "unshaded" background.
       let cls = 'cell';
       if (v === FILLED) cls += a.adjacent[i] ? ' filled error' : ' filled';
       else if (a.isolated[i]) cls += ' isolated';
-      else if (v === DOT || v === AUTO) cls += ' dotted';
+      else if (clues[i] || v === DOT || v === AUTO) cls += ' dotted';
       this.rects[i].setAttribute('class', cls);
       if (clues[i]) {
         const s = a.clueState[i];
