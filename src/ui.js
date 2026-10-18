@@ -187,45 +187,53 @@ export class Board {
   }
 
   /**
-   * Just solved: the shaded cells fade into a muted patchwork of hues around
-   * the green (each cell offset by a scattered phase plus a diagonal sweep),
-   * shimmer, then settle on the solved green. The dots shimmer along with
-   * them and return to their usual colour. With reduced motion, the shaded
+   * Just solved: colour ripples in from the top-left corner, a muted
+   * patchwork of hues around the green with bands of light passing across
+   * it, then everything settles the same way: shaded cells on the solved
+   * green, dots back to their usual colour. With reduced motion, the shaded
    * cells just fade to green.
    */
   celebrate() {
     this.stopCelebration();
-    const { w, n, cells } = this.game;
+    const { w, h, n, cells } = this.game;
     const style = getComputedStyle(this.svg);
     const filled = hexColor(style.getPropertyValue('--filled'));
     const dot = hexColor(style.getPropertyValue('--dot'));
     const ok = hexColor(style.getPropertyValue('--ok'));
-    // Hues drift either side of the solved green, never more saturated or
-    // brighter than the green itself. Dots take a lightness between their
-    // own and the green's so they stay visible on the dotted background.
+    // Hues drift either side of the solved green, never more saturated than
+    // the green itself. Dots take a lightness between their own and the
+    // green's so they stay visible on the dotted background.
     const [okHue, okSat, okLight] = toHsl(ok);
     const dotLight = (toHsl(dot)[2] + okLight) / 2;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const span = Math.max(1, w + h - 2);
     const items = [];
     for (let i = 0; i < n; i++) {
-      const scatter = (Math.imul(i + 1, 2654435761) >>> 0) / 4294967296;
-      const phase = scatter * 160 + (Math.floor(i / w) + (i % w)) * 23;
+      // sweep: 0 at the top-left corner, 1 at the bottom-right.
+      const sweep = (Math.floor(i / w) + (i % w)) / span;
+      const phase = ((Math.imul(i + 1, 2654435761) >>> 0) / 4294967296) * 2 * Math.PI;
       if (cells[i] === FILLED) {
-        items.push({ node: this.rects[i], phase, from: filled, to: ok, sat: okSat * 0.7, light: okLight });
+        items.push({ node: this.rects[i], sweep, phase, from: filled, to: ok, sat: okSat * 0.7, light: okLight });
       } else if ((cells[i] === DOT || cells[i] === AUTO) && this.dots[i] && !reduce) {
-        items.push({ node: this.dots[i], phase, from: dot, to: dot, sat: okSat * 0.6, light: dotLight });
+        items.push({ node: this.dots[i], sweep, phase, from: dot, to: dot, sat: okSat * 0.6, light: dotLight });
       }
     }
-    const duration = reduce ? 800 : 2600;
+    const duration = reduce ? 800 : 4200;
     const start = performance.now();
     this.celebrating = items;
     const frame = (now) => {
       const t = Math.min(1, (now - start) / duration);
-      for (const { node, phase, from, to, sat, light } of items) {
-        const hue = okHue - 10 + 40 * Math.sin(((phase + t * 540) * Math.PI) / 180);
-        const rgb = reduce
-          ? mix(from, to, smooth(0, 1, t))
-          : mix(mix(from, hsl(hue, sat, light), smooth(0, 0.18, t)), to, smooth(0.6, 1, t));
+      for (const { node, sweep, phase, from, to, sat, light } of items) {
+        let rgb;
+        if (reduce) {
+          rgb = mix(from, to, smooth(0, 1, t));
+        } else {
+          const arrive = smooth(0.3 * sweep, 0.3 * sweep + 0.25, t);
+          const settle = smooth(0.6 + 0.15 * sweep, 0.85 + 0.15 * sweep, t);
+          const hue = okHue - 10 + 40 * Math.sin(phase + 3 * Math.PI * t);
+          const glint = 0.06 * Math.sin(2 * Math.PI * (3 * t - sweep));
+          rgb = mix(mix(from, hsl(hue, sat, light + glint), arrive), to, settle);
+        }
         node.style.fill = `rgb(${rgb.map(Math.round).join(',')})`;
       }
       if (t < 1) this.anim = requestAnimationFrame(frame);
