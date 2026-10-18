@@ -1,6 +1,6 @@
 // Page wiring: URL parameters, generation, storage, toolbar and checkpoints.
 
-import { Game } from './game.js';
+import { Game, formatDuration } from './game.js';
 import { Board } from './ui.js';
 import { GENERATOR_VERSION, DIFFICULTIES, checkParams, generate } from './generator.js';
 import { MIN_SIZE, MAX_SIZE, cellName } from './grid.js';
@@ -180,7 +180,8 @@ async function start(params, { push = false } = {}) {
   setBusy(false);
   showProgress(null);
 
-  const game = new Game(puzzle, store.get('progress:' + id));
+  const saved = store.get('progress:' + id);
+  const game = new Game(puzzle, saved);
   current = { params, id, game, solution: puzzle.solution };
   mistakeStep = 0;
   board.setGame(game);
@@ -188,6 +189,8 @@ async function start(params, { push = false } = {}) {
   updateInfo();
   renderCheckpoints();
   refresh();
+  // Keep the start time even if the puzzle is left before any move.
+  if (!saved) saveProgress();
   if (params.linkVersion && params.linkVersion !== String(GENERATOR_VERSION)) {
     setStatus(`This link was made with generator version ${params.linkVersion}; this is version ${GENERATOR_VERSION}, so the puzzle may differ from the one shared.`, 'note');
   }
@@ -206,6 +209,10 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 function commit() {
   mistakeStep = 0;
   board.setHint([]);
+  // Time the solve when a move completes the puzzle (cleared if it is undone).
+  const { game } = current;
+  if (!game.analyze().solved) game.solvedAt = 0;
+  else if (!game.solvedAt) game.solvedAt = Date.now();
   refresh();
   scheduleSave();
 }
@@ -230,7 +237,8 @@ function refresh() {
   $('undo').disabled = game.history.length === 0;
   $('redo').disabled = game.future.length === 0;
   if (a.solved) {
-    setStatus(game.hints ? `Solved! (${plural(game.hints, 'hint')})` : 'Solved!', 'ok');
+    const time = game.solvedAt ? `Solved in ${formatDuration(game.solvedAt - game.startedAt)}` : 'Solved!';
+    setStatus(game.hints ? `${time} (${plural(game.hints, 'hint')})` : time, 'ok');
     return;
   }
   let problems = a.adjacent.reduce((s, v) => s + v, 0) / 2;

@@ -35,6 +35,8 @@ same puzzle.
   further: "there is a mistake", then the wrong marks outlined, then back to
   the last position without mistakes (redo restores). Any move starts that
   over. Hints are counted, and the count is saved with your progress.
+- The clock starts when a puzzle is first shown (wall-clock time, so it keeps
+  running while you are away); solving shows "Solved in hh:mm:ss".
 - Undo/redo (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z), reset, and named
   checkpoints you can revert to at any time. Progress, checkpoints and the
   last 500 undo/redo steps are kept in the browser per puzzle, so undo still

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Game, EMPTY, DOT, AUTO, FILLED, CLUE_OPEN, CLUE_DONE, CLUE_ERROR, nextState } from '../src/game.js';
+import { Game, EMPTY, DOT, AUTO, FILLED, CLUE_OPEN, CLUE_DONE, CLUE_ERROR, nextState, formatDuration } from '../src/game.js';
 import { generate } from '../src/generator.js';
 
 // 4×4 board, cells indexed r*4+c. One clue at (0,0) = 4.
@@ -195,6 +195,22 @@ test('saved history that does not fit the board is dropped', () => {
   const h = new Game({ w: 4, h: 4, clues: g.clues }, junk);
   assert.equal(h.history.length, 0);
   assert.equal(h.future.length, 0);
+});
+
+test('start and solve times are kept and formatted as hh:mm:ss', () => {
+  assert.equal(formatDuration(0), '00:00:00');
+  assert.equal(formatDuration(59999), '00:00:59');
+  assert.equal(formatDuration((3 * 3600 + 4 * 60 + 5) * 1000), '03:04:05');
+  assert.equal(formatDuration(123 * 3600 * 1000), '123:00:00');
+  const g = board();
+  g.startedAt = 1000;
+  g.solvedAt = 61000;
+  const copy = new Game({ w: 4, h: 4, clues: g.clues }, JSON.parse(JSON.stringify(g.serialize())));
+  assert.equal(copy.startedAt, 1000);
+  assert.equal(copy.solvedAt, 61000);
+  const fresh = new Game({ w: 4, h: 4, clues: g.clues }, { cells: '0'.repeat(16) });
+  assert.ok(Math.abs(fresh.startedAt - Date.now()) < 5000, 'old saves start timing now');
+  assert.equal(fresh.solvedAt, 0);
 });
 
 test('entering the solution solves the puzzle; serialize round-trips', () => {

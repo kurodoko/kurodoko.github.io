@@ -42,6 +42,9 @@ export class Game {
     this.changes = null;
     this.lastMove = -1;
     this.hints = 0;
+    // Clock times (ms): when the puzzle was first set, and when it was solved (0: not).
+    this.startedAt = Date.now();
+    this.solvedAt = 0;
     if (saved) this.restore(saved);
     // Saves from older versions may hold automatic dots the rules no longer give.
     this.updateAutoDots();
@@ -226,7 +229,13 @@ export class Game {
   // --- persistence ----------------------------------------------------------
 
   serialize({ withHistory = true } = {}) {
-    const saved = { cells: encodeCells(this.cells), checkpoints: this.checkpoints, hints: this.hints };
+    const saved = {
+      cells: encodeCells(this.cells),
+      checkpoints: this.checkpoints,
+      hints: this.hints,
+      startedAt: this.startedAt,
+      solvedAt: this.solvedAt,
+    };
     if (withHistory) {
       saved.history = this.history.slice(-SAVED_STEPS);
       saved.future = this.future.slice(-SAVED_STEPS);
@@ -240,6 +249,8 @@ export class Game {
       for (let i = 0; i < this.n; i++) if (this.clues[i]) this.cells[i] = EMPTY;
     }
     if (Number.isInteger(saved.hints) && saved.hints > 0) this.hints = saved.hints;
+    if (Number.isFinite(saved.startedAt) && saved.startedAt > 0) this.startedAt = saved.startedAt;
+    if (Number.isFinite(saved.solvedAt) && saved.solvedAt >= this.startedAt) this.solvedAt = saved.solvedAt;
     this.history = this.checkedSteps(saved.history, false);
     this.future = this.checkedSteps(saved.future, true);
     if (Array.isArray(saved.checkpoints)) {
@@ -269,6 +280,13 @@ export class Game {
     }
     return steps;
   }
+}
+
+/** Milliseconds as hh:mm:ss (hours keep counting past 99). */
+export function formatDuration(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const pad = (v) => String(v).padStart(2, '0');
+  return `${pad(Math.floor(total / 3600))}:${pad(Math.floor(total / 60) % 60)}:${pad(total % 60)}`;
 }
 
 export function encodeCells(cells) {
