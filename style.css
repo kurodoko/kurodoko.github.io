@@ -19,6 +19,8 @@
   --clue: #1c1c1e;
   --clue-error: #1a66e8;
   --ok: #1d7f47;
+  /* Dots on a solved board. */
+  --ok-dot: #1d7f47;
   --hover: #efede8;
   color-scheme: light;
 }
@@ -47,6 +49,7 @@
     --clue: #111114;
     --clue-error: #0b4bc4;
     --ok: #4cc27f;
+    --ok-dot: #1f6e45;
     --hover: #26262a;
     color-scheme: dark;
   }
@@ -375,7 +378,7 @@ body.busy .board-wrap {
 }
 
 #board.solved .dot {
-  fill: var(--ok);
+  fill: var(--ok-dot);
 }
 
 #board.solved .grid-border {
