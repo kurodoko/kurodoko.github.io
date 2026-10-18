@@ -198,13 +198,14 @@ export class Board {
     const { w, n, cells } = this.game;
     const style = getComputedStyle(this.svg);
     const color = (name) => hexColor(style.getPropertyValue(name));
-    // Hues swing either side of each kind's green, at its lightness and a
-    // little below its saturation.
+    // Hues swing either side of the solved green, at its lightness and a
+    // little below its saturation; shaded cells and dots end on it alike.
+    const to = color('--ok');
+    const [okHue, okSat, okLight] = toHsl(to);
     const kinds = {
-      filled: { from: color('--filled'), to: color('--ok') },
-      dot: { from: color('--dot'), to: color('--ok-dot') },
+      filled: { from: color('--filled') },
+      dot: { from: color('--dot') },
     };
-    for (const k of Object.values(kinds)) [k.hue, k.sat, k.light] = toHsl(k.to);
     const items = [];
     for (let i = 0; i < n; i++) {
       const kind = cells[i] === FILLED ? kinds.filled : (cells[i] === DOT || cells[i] === AUTO) && this.dots[i] ? kinds.dot : null;
@@ -222,10 +223,10 @@ export class Board {
       for (const { node, kind, phase } of items) {
         let rgb;
         if (reduce) {
-          rgb = mix(kind.from, kind.to, smooth(0, 1, t));
+          rgb = mix(kind.from, to, smooth(0, 1, t));
         } else {
-          const hue = kind.hue + 10 + 70 * Math.sin(((phase + t * 900) * Math.PI) / 180);
-          rgb = mix(mix(kind.from, hsl(hue, kind.sat * 0.75, kind.light), smooth(0, 0.1, t)), kind.to, smooth(0.75, 1, t));
+          const hue = okHue + 10 + 70 * Math.sin(((phase + t * 900) * Math.PI) / 180);
+          rgb = mix(mix(kind.from, hsl(hue, okSat * 0.75, okLight), smooth(0, 0.1, t)), to, smooth(0.75, 1, t));
         }
         node.style.fill = `rgb(${rgb.map(Math.round).join(',')})`;
       }
