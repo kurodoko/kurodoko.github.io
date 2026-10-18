@@ -25,8 +25,6 @@ export function nextState(v, reverse = false) {
   return v === EMPTY ? DOT : v === FILLED ? EMPTY : FILLED;
 }
 
-const kind = (v) => (isDot(v) ? DOT : v);
-
 export class Game {
   constructor({ w, h, clues }, saved = null) {
     this.w = w;
@@ -38,7 +36,7 @@ export class Game {
     this.history = [];
     this.future = [];
     this.checkpoints = [];
-    this.stroke = null;
+    this.changes = null;
     if (saved) this.restore(saved);
   }
 
@@ -46,7 +44,7 @@ export class Game {
 
   write(i, v) {
     if (this.cells[i] === v) return;
-    if (this.stroke && !this.stroke.old.has(i)) this.stroke.old.set(i, this.cells[i]);
+    if (this.changes && !this.changes.has(i)) this.changes.set(i, this.cells[i]);
     this.cells[i] = v;
   }
 
@@ -83,38 +81,15 @@ export class Game {
 
   // --- player actions -------------------------------------------------------
 
-  /**
-   * Start a stroke (pointer down) on cell i. Dragging then applies the same
-   * new state to cells that started in the same state as i. Returns false if
-   * i cannot be marked.
-   */
-  beginStroke(i, reverse = false) {
-    this.endStroke();
-    if (i < 0 || this.clues[i]) return false;
-    const from = kind(this.cells[i]);
-    this.stroke = { old: new Map(), from, target: nextState(this.cells[i], reverse) };
-    this.setState(i, this.stroke.target);
-    return true;
-  }
-
-  /** Extend the current stroke to cell i (cells already changed are skipped). */
-  continueStroke(i) {
-    const s = this.stroke;
-    if (!s || i < 0 || this.clues[i] || s.old.has(i)) return;
-    if (kind(this.cells[i]) !== s.from) return;
-    this.setState(i, s.target);
-  }
-
-  endStroke() {
-    const s = this.stroke;
-    if (!s) return;
-    this.stroke = null;
-    this.record(s.old);
-  }
-
-  /** Single click: a one-cell stroke. */
+  /** Click cell i: advance its state (with automatic dots) as one undo step. */
   click(i, reverse = false) {
-    if (this.beginStroke(i, reverse)) this.endStroke();
+    if (i < 0 || this.clues[i]) return false;
+    this.changes = new Map();
+    this.setState(i, nextState(this.cells[i], reverse));
+    const changes = this.changes;
+    this.changes = null;
+    this.record(changes);
+    return true;
   }
 
   /** Push the changes in old (cell → previous value) as one undo step. */
@@ -139,7 +114,6 @@ export class Game {
   }
 
   undo() {
-    this.endStroke();
     const group = this.history.pop();
     if (!group) return false;
     for (let k = group.length - 3; k >= 0; k -= 3) this.cells[group[k]] = group[k + 1];
@@ -148,7 +122,6 @@ export class Game {
   }
 
   redo() {
-    this.endStroke();
     const group = this.future.pop();
     if (!group) return false;
     for (let k = 0; k < group.length; k += 3) this.cells[group[k]] = group[k + 2];
@@ -157,14 +130,12 @@ export class Game {
   }
 
   reset() {
-    this.endStroke();
     this.replaceAll(new Uint8Array(this.n));
   }
 
   // --- checkpoints ----------------------------------------------------------
 
   saveCheckpoint(name, time = Date.now()) {
-    this.endStroke();
     const filled = this.cells.reduce((a, v) => a + (v === FILLED ? 1 : 0), 0);
     this.checkpoints.push({
       name: name || `Checkpoint ${this.checkpoints.length + 1}`,
@@ -178,7 +149,6 @@ export class Game {
   revertCheckpoint(k) {
     const cp = this.checkpoints[k];
     if (!cp) return false;
-    this.endStroke();
     this.replaceAll(decodeCells(cp.cells, this.n));
     return true;
   }
@@ -191,9 +161,11 @@ export class Game {
 
   /**
    * Rule check for display.
-   *   clueState[i]  CLUE_DONE when the count to the first filled cell or edge
-   *                 in each direction is exactly the number; CLUE_ERROR when it
-   *                 can no longer be met.
+   *   clueState[i]  CLUE_DONE as soon as the number plus the unbroken dots
+   *                 (or numbers) around it reach exactly the number, or when
+   *                 the count to the first filled cell or edge in each
+   *                 direction is exactly the number; CLUE_ERROR when it can no
+   *                 longer be met.
    *   adjacent[i]   1 for filled cells touching another filled cell.
    *   isolated[i]   1 for unfilled cells cut off from the largest unfilled area.
    *   solved        every rule holds (unmarked cells count as unshaded).
@@ -235,7 +207,7 @@ export class Game {
         }
       }
       if (min > target || max < target) clueState[p] = CLUE_ERROR;
-      else if (max === target) clueState[p] = CLUE_DONE;
+      else if (min === target || max === target) clueState[p] = CLUE_DONE;
       if (max !== target) allDone = false;
     }
 

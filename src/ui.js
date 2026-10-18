@@ -1,7 +1,13 @@
-// SVG board: draws a Game and turns pointer input into strokes.
+// SVG board: draws a Game, turns clicks into moves, and zooms.
 //
 // Elements are created once per puzzle and only re-classed when a cell's
-// look changes, so a 60×60 board stays responsive while dragging.
+// look changes, so a 60×60 board stays responsive.
+//
+// A move happens on release, and only if the pointer stayed on the cell it
+// pressed: dragging never marks cells. A drag scrolls the board instead
+// (natively for touch, by hand for the mouse). Zoom: pinch, Ctrl/⌘ + wheel (trackpad pinch), Safari
+// gesture events, or zoomBy() from buttons and keys; the point under the
+// fingers or cursor stays put.
 
 import { columnName } from './grid.js';
 import { FILLED, DOT, AUTO, CLUE_DONE, CLUE_ERROR } from './game.js';
@@ -12,6 +18,11 @@ const U = 40;
 const MARGIN_LEFT = 1.5 * U;
 const MARGIN_TOP = 1.05 * U;
 const PAD = 0.3 * U;
+/** Zoom range, in pixels per cell. */
+const MIN_CELL_PX = 8;
+const MAX_CELL_PX = 120;
+/** Pointer travel (px) that turns a press into a scroll instead of a click. */
+const CLICK_SLOP = 10;
 
 function el(name, attrs = {}, parent = null) {
   const node = document.createElementNS(NS, name);
@@ -21,13 +32,20 @@ function el(name, attrs = {}, parent = null) {
 }
 
 export class Board {
-  constructor(svg, { onCommit = () => {}, onHover = () => {} } = {}) {
+  /** svg: the board; wrap: its scrolling container. */
+  constructor(svg, wrap, { onCommit = () => {}, onHover = () => {}, onZoom = () => {} } = {}) {
     this.svg = svg;
+    this.wrap = wrap;
     this.onCommit = onCommit;
     this.onHover = onHover;
+    this.onZoom = onZoom;
     this.game = null;
     this.scale = 1;
-    this.dragging = false;
+    this.press = null;
+    this.pan = null;
+    this.touchPointers = new Set();
+    this.pinch = null;
+    this.gestureStart = 0;
     this.pending = 0;
     this.hover = -1;
 
@@ -35,8 +53,17 @@ export class Board {
     svg.addEventListener('pointerdown', (e) => this.pointerDown(e));
     svg.addEventListener('pointermove', (e) => this.pointerMove(e));
     svg.addEventListener('pointerup', (e) => this.pointerUp(e));
-    svg.addEventListener('pointercancel', (e) => this.pointerUp(e));
+    svg.addEventListener('pointercancel', (e) => this.pointerEnd(e));
     svg.addEventListener('pointerleave', () => this.setHover(-1));
+
+    wrap.addEventListener('wheel', (e) => this.wheel(e), { passive: false });
+    wrap.addEventListener('touchstart', (e) => this.touch(e), { passive: false });
+    wrap.addEventListener('touchmove', (e) => this.touch(e), { passive: false });
+    wrap.addEventListener('touchend', (e) => this.touch(e));
+    wrap.addEventListener('touchcancel', (e) => this.touch(e));
+    // Safari trackpad and iOS pinch.
+    wrap.addEventListener('gesturestart', (e) => this.gesture(e));
+    wrap.addEventListener('gesturechange', (e) => this.gesture(e));
   }
 
   get width() {
@@ -81,10 +108,12 @@ export class Board {
       }
     }
 
-    let d = '';
-    for (let c = 1; c < w; c++) d += `M${MARGIN_LEFT + c * U} ${MARGIN_TOP}v${h * U}`;
-    for (let r = 1; r < h; r++) d += `M${MARGIN_LEFT} ${MARGIN_TOP + r * U}h${w * U}`;
-    el('path', { d, class: 'grid-line' }, lineLayer);
+    // Every 5th line is heavier, to help counting.
+    const lines = ['', ''];
+    for (let c = 1; c < w; c++) lines[c % 5 === 0 ? 1 : 0] += `M${MARGIN_LEFT + c * U} ${MARGIN_TOP}v${h * U}`;
+    for (let r = 1; r < h; r++) lines[r % 5 === 0 ? 1 : 0] += `M${MARGIN_LEFT} ${MARGIN_TOP + r * U}h${w * U}`;
+    el('path', { d: lines[0], class: 'grid-line' }, lineLayer);
+    el('path', { d: lines[1], class: 'grid-line major' }, lineLayer);
     el('rect', { x: MARGIN_LEFT, y: MARGIN_TOP, width: w * U, height: h * U, class: 'grid-border' }, lineLayer);
 
     this.colLabels = [];
@@ -120,6 +149,7 @@ export class Board {
       let cls = 'cell';
       if (v === FILLED) cls += a.adjacent[i] ? ' filled error' : ' filled';
       else if (a.isolated[i]) cls += ' isolated';
+      else if (v === DOT || v === AUTO) cls += ' dotted';
       this.rects[i].setAttribute('class', cls);
       if (clues[i]) {
         const s = a.clueState[i];
@@ -147,8 +177,33 @@ export class Board {
   }
 
   setCellPx(px) {
-    this.scale = Math.min(64, Math.max(8, px)) / U;
+    this.scale = Math.min(MAX_CELL_PX, Math.max(MIN_CELL_PX, px)) / U;
     this.applyScale();
+  }
+
+  /**
+   * Set the cell size keeping the board point under (clientX, clientY) in
+   * place, scrolling the container as needed.
+   */
+  zoomTo(px, clientX, clientY) {
+    if (!this.game) return;
+    const before = this.svg.getBoundingClientRect();
+    const ux = (clientX - before.left) / this.scale;
+    const uy = (clientY - before.top) / this.scale;
+    this.setCellPx(px);
+    const after = this.svg.getBoundingClientRect();
+    this.wrap.scrollLeft += after.left + ux * this.scale - clientX;
+    this.wrap.scrollTop += after.top + uy * this.scale - clientY;
+    this.onZoom();
+  }
+
+  /** Zoom by a factor around the middle of the visible part of the board. */
+  zoomBy(factor) {
+    const r = this.wrap.getBoundingClientRect();
+    const s = this.svg.getBoundingClientRect();
+    const x = (Math.max(r.left, s.left) + Math.min(r.right, s.right)) / 2;
+    const y = (Math.max(r.top, s.top) + Math.min(r.bottom, s.bottom)) / 2;
+    this.zoomTo(this.cellPx * factor, x, y);
   }
 
   applyScale() {
@@ -178,31 +233,106 @@ export class Board {
   }
 
   pointerDown(e) {
+    if (e.pointerType === 'touch') {
+      this.touchPointers.add(e.pointerId);
+      // A second finger means a pinch, not a tap.
+      if (this.touchPointers.size > 1) {
+        this.press = null;
+        return;
+      }
+    }
     if (!this.game || (e.button !== 0 && e.button !== 2)) return;
     const i = this.cellAt(e);
     if (i < 0) return;
-    e.preventDefault();
-    if (!this.game.beginStroke(i, e.button === 2 || e.shiftKey)) return;
-    this.dragging = true;
-    this.svg.setPointerCapture(e.pointerId);
-    this.scheduleRender();
+    // Mouse: avoid text selection, and pan by hand if this becomes a drag.
+    // Touch: leave the browser free to scroll.
+    if (e.pointerType === 'mouse') {
+      e.preventDefault();
+      this.pan = { id: e.pointerId, x: e.clientX, y: e.clientY, active: false };
+    }
+    this.press = { id: e.pointerId, cell: i, x: e.clientX, y: e.clientY, reverse: e.button === 2 || e.shiftKey };
   }
 
   pointerMove(e) {
     if (!this.game) return;
-    const i = this.cellAt(e);
-    if (e.pointerType === 'mouse') this.setHover(i);
-    if (!this.dragging) return;
-    this.game.continueStroke(i);
-    this.scheduleRender();
+    const p = this.press;
+    if (p && p.id === e.pointerId && Math.hypot(e.clientX - p.x, e.clientY - p.y) > CLICK_SLOP) {
+      this.press = null;
+      if (this.pan) {
+        this.pan.active = true;
+        this.svg.setPointerCapture(e.pointerId);
+        this.wrap.classList.add('panning');
+      }
+    }
+    const pan = this.pan;
+    if (pan && pan.active && pan.id === e.pointerId) {
+      this.wrap.scrollLeft -= e.clientX - pan.x;
+      this.wrap.scrollTop -= e.clientY - pan.y;
+      pan.x = e.clientX;
+      pan.y = e.clientY;
+      return;
+    }
+    if (e.pointerType === 'mouse') this.setHover(this.cellAt(e));
   }
 
-  pointerUp() {
-    if (!this.dragging) return;
-    this.dragging = false;
-    this.game.endStroke();
-    this.render();
-    this.onCommit();
+  pointerUp(e) {
+    const p = this.press;
+    this.pointerEnd(e);
+    if (!p || p.id !== e.pointerId || this.cellAt(e) !== p.cell) return;
+    if (this.game.click(p.cell, p.reverse)) {
+      this.render();
+      this.onCommit();
+    }
+  }
+
+  pointerEnd(e) {
+    this.touchPointers.delete(e.pointerId);
+    if (this.press && this.press.id === e.pointerId) this.press = null;
+    if (this.pan && this.pan.id === e.pointerId) {
+      this.pan = null;
+      this.wrap.classList.remove('panning');
+    }
+  }
+
+  /** Ctrl/⌘ + wheel, which is also what trackpad pinches send, zooms. */
+  wheel(e) {
+    if (!this.game || !(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+    this.zoomTo(this.cellPx * Math.exp(-dy * 0.01), e.clientX, e.clientY);
+  }
+
+  /** Two-finger pinch zooms around the fingers; one finger scrolls natively. */
+  touch(e) {
+    if (!this.game) return;
+    const t = e.touches;
+    if (t.length !== 2) {
+      this.pinch = null;
+      return;
+    }
+    e.preventDefault();
+    const x = (t[0].clientX + t[1].clientX) / 2;
+    const y = (t[0].clientY + t[1].clientY) / 2;
+    const dist = Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    if (!this.pinch) {
+      this.press = null;
+      this.pinch = { dist, px: this.cellPx, x, y };
+      return;
+    }
+    // Follow the fingers: pan by the midpoint's movement, then zoom around it.
+    this.wrap.scrollLeft -= x - this.pinch.x;
+    this.wrap.scrollTop -= y - this.pinch.y;
+    this.pinch.x = x;
+    this.pinch.y = y;
+    this.zoomTo(this.pinch.px * (dist / this.pinch.dist), x, y);
+  }
+
+  /** Safari gesture events; touch pinches are already handled above. */
+  gesture(e) {
+    e.preventDefault();
+    if (!this.game || this.pinch) return;
+    if (e.type === 'gesturestart') this.gestureStart = this.cellPx;
+    else this.zoomTo(this.gestureStart * e.scale, e.clientX, e.clientY);
   }
 
   /** Highlight the margin coordinates of the cell under the pointer. */

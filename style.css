@@ -5,7 +5,9 @@
   --muted: #6e6e73;
   --line: #dcd9d2;
   --grid: #c9c6be;
-  --cell: #fdfcf9;
+  --grid-major: #a29f97;
+  --cell: #f5f3ed;
+  --cell-dot: #fefdfb;
   --filled: #1c1c1e;
   --dot: #4a4a4f;
   --dot-auto: #a3a3a8;
@@ -25,7 +27,9 @@
     --muted: #9b9ba2;
     --line: #2f2f34;
     --grid: #3b3b41;
-    --cell: #212125;
+    --grid-major: #5c5c63;
+    --cell: #202024;
+    --cell-dot: #2a2a2f;
     --filled: #e6e6ea;
     --dot: #c7c7cd;
     --dot-auto: #74747b;
@@ -259,10 +263,15 @@ button.icon {
   transition: width 0.1s linear;
 }
 
+/* The board scrolls inside this frame when zoomed in; main.js sets its
+   height to the window space below it. */
 .board-wrap {
   overflow: auto;
   max-width: 100%;
+  max-height: calc(100vh - 16px);
   padding-bottom: 4px;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
 }
 
 body.busy .board-wrap {
@@ -273,7 +282,6 @@ body.busy .board-wrap {
 #board {
   display: block;
   margin: 0 auto;
-  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -283,12 +291,21 @@ body.busy .board-wrap {
   pointer-events: none;
 }
 
+.board-wrap.panning,
+.board-wrap.panning #board {
+  cursor: grabbing;
+}
+
 .board-bg {
   fill: var(--cell);
 }
 
 .cell {
   fill: transparent;
+}
+
+.cell.dotted {
+  fill: var(--cell-dot);
 }
 
 .cell.isolated {
@@ -310,10 +327,15 @@ body.busy .board-wrap {
   vector-effect: non-scaling-stroke;
 }
 
+.grid-line.major {
+  stroke: var(--grid-major);
+  stroke-width: 1.75;
+}
+
 .grid-border {
   fill: none;
   stroke: var(--ink);
-  stroke-width: 2;
+  stroke-width: 2.5;
   vector-effect: non-scaling-stroke;
 }
 

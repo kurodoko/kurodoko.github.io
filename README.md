@@ -18,11 +18,17 @@ same puzzle.
 ## Controls
 
 - Click a cell to cycle empty → dot → shaded → empty. Right-click or
-  Shift-click cycles backwards. Drag to apply the same change to more cells.
+  Shift-click cycles backwards. Only clicks mark cells; dragging scrolls.
+- Zoom with a pinch (touch screen or trackpad), Ctrl/⌘ + scroll, the − / +
+  buttons, or the + / − keys (0 fits the board to the window). A zoomed board
+  scrolls inside its frame. Every 5th grid line is heavier to help counting.
+- Dotted cells have a slightly paler background than untouched ones.
 - Shading a cell dots its empty neighbours automatically (drawn smaller).
   Unshading removes only those automatic dots, never ones you placed.
-- A number turns grey when its count is met exactly, and blue when it can no
-  longer be met. Touching shaded cells and cut-off areas also show in blue.
+- A number turns grey as soon as it plus the dots in an unbroken line from it
+  add up to the number (no shaded cells needed at the ends), or when shading
+  closes its view at exactly that count. It turns blue when it can no longer
+  be met. Touching shaded cells and cut-off areas also show in blue.
 - Undo/redo (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z), reset, zoom, and named
   checkpoints you can revert to at any time. Progress and checkpoints are kept
   in the browser per puzzle.

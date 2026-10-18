@@ -124,7 +124,10 @@ let startToken = 0;
 let autoFit = true;
 let saveTimer = 0;
 
-const board = new Board($('board'), {
+const board = new Board($('board'), $('board-wrap'), {
+  onZoom: () => {
+    autoFit = false;
+  },
   onCommit: () => commit(),
   onHover: (i) => {
     $('coord').textContent = i >= 0 && current ? cellName(current.game.w, i) : '';
@@ -227,12 +230,22 @@ function setStatus(text, kind = '') {
   s.className = `status ${kind}`;
 }
 
-function fitBoard() {
-  if (!current) return;
+/**
+ * Size the board's scrolling frame to the window space below it (at least 60%
+ * of the window, so small screens scroll the page a little instead).
+ */
+function sizeFrame() {
   const wrap = $('board-wrap');
   const top = wrap.getBoundingClientRect().top + window.scrollY;
-  const availH = Math.max(320, window.innerHeight - Math.min(top, 260) - 24);
-  board.fit(wrap.clientWidth, availH);
+  const height = Math.floor(Math.max(0.6 * window.innerHeight, window.innerHeight - top - 16));
+  wrap.style.maxHeight = `${height}px`;
+  return height;
+}
+
+function fitBoard() {
+  if (!current) return;
+  const height = sizeFrame();
+  board.fit($('board-wrap').clientWidth, height - 8);
 }
 
 // --- form ---------------------------------------------------------------------
@@ -278,9 +291,14 @@ function act(fn) {
 $('undo').addEventListener('click', () => act((g) => g.undo()));
 $('redo').addEventListener('click', () => act((g) => g.redo()));
 $('reset').addEventListener('click', () => act((g) => g.reset()));
-$('zoom-in').addEventListener('click', () => { autoFit = false; board.setCellPx(board.cellPx * 1.25); });
-$('zoom-out').addEventListener('click', () => { autoFit = false; board.setCellPx(board.cellPx / 1.25); });
-$('zoom-fit').addEventListener('click', () => { autoFit = true; fitBoard(); });
+function fitToWindow() {
+  autoFit = true;
+  fitBoard();
+}
+
+$('zoom-in').addEventListener('click', () => board.zoomBy(1.25));
+$('zoom-out').addEventListener('click', () => board.zoomBy(0.8));
+$('zoom-fit').addEventListener('click', fitToWindow);
 $('copy-link').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(location.href);
@@ -299,11 +317,17 @@ document.addEventListener('keydown', (e) => {
   } else if (mod && e.key.toLowerCase() === 'y') {
     e.preventDefault();
     act((g) => g.redo());
+  } else if (!mod && !e.altKey && current) {
+    // Plain + / - / 0 zoom the board (Ctrl/⌘ + / - stays browser zoom).
+    if (e.key === '+' || e.key === '=') board.zoomBy(1.25);
+    else if (e.key === '-' || e.key === '_') board.zoomBy(0.8);
+    else if (e.key === '0') fitToWindow();
   }
 });
 
 window.addEventListener('resize', () => {
   if (autoFit) fitBoard();
+  else sizeFrame();
 });
 window.addEventListener('popstate', () => start(readParams()));
 window.addEventListener('pagehide', saveProgress);

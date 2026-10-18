@@ -83,27 +83,16 @@ test('undo and redo restore whole strokes including automatic dots', () => {
   assert.ok(!g.redo());
 });
 
-test('drag applies the stroke target to cells that started in the same state', () => {
+test('each click is one undo step', () => {
   const g = board();
-  g.click(at(3, 3));
-  g.beginStroke(at(3, 0)); // empty → dot
-  g.continueStroke(at(3, 1));
-  g.continueStroke(at(3, 2));
-  g.continueStroke(at(3, 3)); // already a dot: skipped
-  g.endStroke();
-  assert.deepEqual([0, 1, 2, 3].map((c) => g.cells[at(3, c)]), [DOT, DOT, DOT, DOT]);
-  assert.equal(g.history.length, 2);
+  g.click(at(3, 0));
+  g.click(at(3, 1));
+  g.click(at(3, 1));
+  assert.deepEqual([0, 1].map((c) => g.cells[at(3, c)]), [DOT, FILLED]);
+  assert.equal(g.history.length, 3);
   g.undo();
-  assert.deepEqual([0, 1, 2, 3].map((c) => g.cells[at(3, c)]), [EMPTY, EMPTY, EMPTY, DOT]);
-});
-
-test('a fill stroke does not fill the automatic dots it just created', () => {
-  const g = board();
-  g.beginStroke(at(2, 0), true); // empty → filled; (2,1) becomes AUTO
-  g.continueStroke(at(2, 1));
-  g.continueStroke(at(2, 2));
-  g.endStroke();
-  assert.deepEqual([0, 1, 2].map((c) => g.cells[at(2, c)]), [FILLED, AUTO, FILLED]);
+  assert.deepEqual([0, 1].map((c) => g.cells[at(3, c)]), [DOT, DOT]);
+  assert.equal(g.cells[at(2, 1)], EMPTY, 'undo removed the automatic dot too');
 });
 
 test('checkpoints save and revert, and reverting is undoable', () => {
@@ -124,6 +113,17 @@ test('checkpoints save and revert, and reverting is undoable', () => {
   assert.deepEqual(g.checkpoints.map((c) => c.name), ['second']);
 });
 
+test('numbers grey out once dots reach the number, without shaded ends', () => {
+  const g = board();
+  g.click(at(0, 1));
+  g.click(at(0, 2));
+  assert.equal(g.analyze().clueState[0], CLUE_OPEN, '1 + 2 dots = 3 < 4');
+  g.click(at(1, 0));
+  assert.equal(g.analyze().clueState[0], CLUE_DONE, '1 + 2 dots right + 1 dot down = 4');
+  g.click(at(0, 3));
+  assert.equal(g.analyze().clueState[0], CLUE_ERROR, 'a fifth dot is too many');
+});
+
 test('numbers grey out exactly when satisfied and turn blue when impossible', () => {
   const g = board();
   // Clue 4 at (0,0) sees 7 cells with nothing filled.
@@ -138,10 +138,7 @@ test('numbers grey out exactly when satisfied and turn blue when impossible', ()
   g.undo();
   // Dots making the certain view too long are also an error.
   g.click(at(0, 2)); // unfill
-  g.beginStroke(at(0, 1));
-  g.continueStroke(at(0, 2));
-  g.continueStroke(at(0, 3));
-  g.endStroke();
+  for (const c of [1, 2, 3]) g.click(at(0, c));
   g.click(at(1, 0));
   assert.equal(g.analyze().clueState[0], CLUE_ERROR, '1 + 3 dots right + 1 dot down = 5 > 4');
 });
