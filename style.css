@@ -216,9 +216,13 @@ button.icon {
   margin: 12px 0 6px;
 }
 
-.toolbar .group {
+/* Undo/redo, centred over the grid (--grid-shift skips the row labels). */
+.board-tools {
   display: flex;
-  gap: 6px;
+  justify-content: center;
+  gap: 8px;
+  padding-left: var(--grid-shift, 0px);
+  margin-bottom: 6px;
 }
 
 .meta {

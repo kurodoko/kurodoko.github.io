@@ -35,11 +35,7 @@
       </form>
 
       <div class="toolbar" role="toolbar" aria-label="Board">
-        <span class="group">
-          <button type="button" id="undo" title="Undo (Ctrl+Z)">Undo</button>
-          <button type="button" id="redo" title="Redo (Ctrl+Y or Ctrl+Shift+Z)">Redo</button>
-          <button type="button" id="reset" title="Clear the board (undoable)">Reset</button>
-        </span>
+        <button type="button" id="reset" title="Clear the board (undoable)">Reset</button>
         <button type="button" id="copy-link" title="Copy a link that recreates this puzzle">Copy link</button>
       </div>
 
@@ -51,6 +47,10 @@
       <div id="progress" class="progress" hidden><div id="progress-bar"></div></div>
 
       <div id="board-wrap" class="board-wrap">
+        <div id="board-tools" class="board-tools">
+          <button type="button" id="undo" title="Undo (Ctrl+Z)">Undo</button>
+          <button type="button" id="redo" title="Redo (Ctrl+Y or Ctrl+Shift+Z)">Redo</button>
+        </div>
         <svg id="board" xmlns="http://www.w3.org/2000/svg" role="img"></svg>
       </div>
     </section>

@@ -161,6 +161,8 @@ export class Board {
     // Round down so the board never spills over its container.
     this.svg.setAttribute('width', Math.floor(this.width * this.scale));
     this.svg.setAttribute('height', Math.floor(this.height * this.scale));
+    // Lets the page centre things over the grid rather than the whole board.
+    this.svg.parentElement.style.setProperty('--grid-shift', `${(MARGIN_LEFT - PAD) * this.scale}px`);
     // Keep coordinates at least ~8px on screen, within what fits a cell.
     this.labelLayer.style.fontSize = `${Math.min(0.5 * U, Math.max(0.35 * U, 8 / this.scale))}px`;
   }

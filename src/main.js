@@ -241,7 +241,8 @@ function fitBoard() {
   if (!current) return;
   const root = document.documentElement;
   const wrap = $('board-wrap');
-  const height = Math.max(0.5 * root.clientHeight, root.clientHeight - wrap.offsetTop - 16);
+  const above = wrap.offsetTop + $('board-tools').offsetHeight;
+  const height = Math.max(0.5 * root.clientHeight, root.clientHeight - above - 16);
   board.fit(wrap.clientWidth, height);
   fittedFor = `${root.clientWidth}x${root.clientHeight}`;
 }
