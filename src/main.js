@@ -21,11 +21,13 @@ const store = {
       return null;
     }
   },
+  /** Returns false if the value could not be stored (full or unavailable). */
   set(key, value) {
     try {
       localStorage.setItem(PREFIX + key, JSON.stringify(value));
+      return true;
     } catch {
-      // Storage full or unavailable: progress just isn't kept.
+      return false;
     }
   },
   remove(key) {
@@ -216,7 +218,9 @@ function scheduleSave() {
 function saveProgress() {
   clearTimeout(saveTimer);
   if (!current) return;
-  store.set('progress:' + current.id, current.game.serialize());
+  // Undo history is a nice-to-have: if storage is full, keep the board without it.
+  const key = 'progress:' + current.id;
+  if (!store.set(key, current.game.serialize())) store.set(key, current.game.serialize({ withHistory: false }));
   touchIndex('progress', 'progress:' + current.id, 100);
 }
 

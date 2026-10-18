@@ -38,8 +38,9 @@ same puzzle.
   the last position without mistakes (redo restores). Any move starts that
   over. Hints are counted, and the count is saved with your progress.
 - Undo/redo (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z), reset, and named
-  checkpoints you can revert to at any time. Progress and checkpoints are kept
-  in the browser per puzzle.
+  checkpoints you can revert to at any time. Progress, checkpoints and the
+  last 500 undo/redo steps are kept in the browser per puzzle, so undo still
+  works after a reload.
 
 ## URL parameters
 

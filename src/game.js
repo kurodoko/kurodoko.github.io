@@ -21,6 +21,9 @@ export const CLUE_ERROR = 2;
 
 const isDot = (v) => v === DOT || v === AUTO;
 
+/** Undo (and redo) steps kept when progress is saved. */
+const SAVED_STEPS = 500;
+
 /** Click cycle: empty → dot → filled → empty (reverse goes the other way). */
 export function nextState(v, reverse = false) {
   if (reverse) return v === EMPTY ? FILLED : v === FILLED ? DOT : EMPTY;
@@ -237,8 +240,13 @@ export class Game {
 
   // --- persistence ----------------------------------------------------------
 
-  serialize() {
-    return { cells: encodeCells(this.cells), checkpoints: this.checkpoints, hints: this.hints };
+  serialize({ withHistory = true } = {}) {
+    const saved = { cells: encodeCells(this.cells), checkpoints: this.checkpoints, hints: this.hints };
+    if (withHistory) {
+      saved.history = this.history.slice(-SAVED_STEPS);
+      saved.future = this.future.slice(-SAVED_STEPS);
+    }
+    return saved;
   }
 
   restore(saved) {
@@ -247,9 +255,34 @@ export class Game {
       for (let i = 0; i < this.n; i++) if (this.clues[i]) this.cells[i] = EMPTY;
     }
     if (Number.isInteger(saved.hints) && saved.hints > 0) this.hints = saved.hints;
+    this.history = this.checkedSteps(saved.history, false);
+    this.future = this.checkedSteps(saved.future, true);
     if (Array.isArray(saved.checkpoints)) {
       this.checkpoints = saved.checkpoints.filter((cp) => typeof cp.cells === 'string' && cp.cells.length === this.n);
     }
+  }
+
+  /**
+   * Saved undo (or redo) steps, if they fit the current cells exactly:
+   * walking back through history (or forward through redo) every step must
+   * find the values it expects. Anything else (another version, a damaged
+   * save) is dropped rather than risk an undo corrupting the board.
+   */
+  checkedSteps(steps, redo) {
+    if (!Array.isArray(steps)) return [];
+    const cells = Uint8Array.from(this.cells);
+    const ok = (v) => Number.isInteger(v) && v >= EMPTY && v <= FILLED;
+    for (let s = steps.length - 1; s >= 0; s--) {
+      const g = steps[s];
+      if (!Array.isArray(g) || g.length === 0 || g.length % 3) return [];
+      for (let k = 0; k < g.length; k += 3) {
+        const [i, before, after] = [g[k], g[k + 1], g[k + 2]];
+        if (!Number.isInteger(i) || i < 0 || i >= this.n || this.clues[i] || !ok(before) || !ok(after)) return [];
+        if (cells[i] !== (redo ? before : after)) return [];
+        cells[i] = redo ? after : before;
+      }
+    }
+    return steps;
   }
 }
 

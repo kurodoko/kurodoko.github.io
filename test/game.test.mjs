@@ -182,6 +182,38 @@ test('cut-off areas are reported', () => {
   assert.equal(isolated.reduce((a, b) => a + b, 0), 1);
 });
 
+test('undo and redo survive a save and reload', () => {
+  const g = board();
+  g.click(at(1, 1), true);
+  g.click(at(3, 3));
+  g.click(at(2, 2), true);
+  g.undo();
+  const copy = new Game({ w: 4, h: 4, clues: g.clues }, JSON.parse(JSON.stringify(g.serialize())));
+  assert.deepEqual(Array.from(copy.cells), Array.from(g.cells));
+  assert.equal(copy.history.length, 2);
+  assert.equal(copy.future.length, 1);
+  copy.redo();
+  assert.equal(copy.cells[at(2, 2)], FILLED);
+  copy.undo();
+  copy.undo();
+  copy.undo();
+  assert.ok(copy.cells.every((v) => v === EMPTY), 'undo all the way back to the start');
+  const plain = new Game({ w: 4, h: 4, clues: g.clues }, g.serialize({ withHistory: false }));
+  assert.equal(plain.history.length, 0);
+});
+
+test('saved history that does not fit the board is dropped', () => {
+  const g = board();
+  g.click(at(1, 1), true);
+  const saved = JSON.parse(JSON.stringify(g.serialize()));
+  saved.cells = '0'.repeat(16); // board and history disagree
+  assert.equal(new Game({ w: 4, h: 4, clues: g.clues }, saved).history.length, 0);
+  const junk = { ...g.serialize(), history: [[999, 0, 3]], future: 'nope' };
+  const h = new Game({ w: 4, h: 4, clues: g.clues }, junk);
+  assert.equal(h.history.length, 0);
+  assert.equal(h.future.length, 0);
+});
+
 test('entering the solution solves the puzzle; serialize round-trips', () => {
   const p = generate({ w: 8, h: 8, seed: 3, difficulty: 'easy' });
   const g = new Game(p);
