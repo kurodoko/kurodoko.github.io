@@ -1,9 +1,11 @@
 // Game state: what the player has marked, independent of any display.
 //
 // Each non-number cell is EMPTY, DOT (placed by the player), AUTO (a dot
-// placed automatically next to a filled cell) or FILLED. Filling a cell puts
-// AUTO dots on its empty neighbours; unfilling removes only AUTO dots that no
-// longer touch a filled cell. Player dots are never touched.
+// placed automatically) or FILLED. After every move the automatic dots are
+// recomputed: a cell gets one when it touches a filled cell, or when a number
+// sees it and filled cells (or the edge) close that number's view at exactly
+// its count. Automatic dots whose reason has gone are removed. Player dots
+// are never touched.
 
 import { neighbourTable, components, isValidSolution } from './grid.js';
 
@@ -48,34 +50,44 @@ export class Game {
     this.cells[i] = v;
   }
 
-  hasFilledNeighbour(i) {
-    for (let d = 0; d < 4; d++) {
-      const j = this.nb[4 * i + d];
-      if (j >= 0 && this.cells[j] === FILLED) return true;
-    }
-    return false;
-  }
-
-  /** Set one cell, maintaining automatic dots. */
+  /** Set one cell, then bring the automatic dots up to date. */
   setState(i, target) {
     if (this.clues[i]) return;
-    const old = this.cells[i];
-    if (old === target) return;
-    if (target === FILLED) {
-      this.write(i, FILLED);
+    this.write(i, target);
+    this.updateAutoDots();
+  }
+
+  /** Cells that need an automatic dot (see the header comment). */
+  autoDotCells() {
+    const { n, cells, clues, nb } = this;
+    const need = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      if (cells[i] !== FILLED) continue;
       for (let d = 0; d < 4; d++) {
-        const j = this.nb[4 * i + d];
-        if (j >= 0 && !this.clues[j] && this.cells[j] === EMPTY) this.write(j, AUTO);
+        const j = nb[4 * i + d];
+        if (j >= 0) need[j] = 1;
       }
-      return;
     }
-    // A cell unfilled next to another filled cell keeps an automatic dot.
-    this.write(i, old === FILLED && target === EMPTY && this.hasFilledNeighbour(i) ? AUTO : target);
-    if (old === FILLED) {
+    for (let p = 0; p < n; p++) {
+      if (!clues[p]) continue;
+      let seen = 1;
       for (let d = 0; d < 4; d++) {
-        const j = this.nb[4 * i + d];
-        if (j >= 0 && this.cells[j] === AUTO && !this.hasFilledNeighbour(j)) this.write(j, EMPTY);
+        for (let j = nb[4 * p + d]; j >= 0 && cells[j] !== FILLED; j = nb[4 * j + d]) seen++;
       }
+      if (seen !== clues[p]) continue;
+      for (let d = 0; d < 4; d++) {
+        for (let j = nb[4 * p + d]; j >= 0 && cells[j] !== FILLED; j = nb[4 * j + d]) need[j] = 1;
+      }
+    }
+    return need;
+  }
+
+  updateAutoDots() {
+    const need = this.autoDotCells();
+    for (let i = 0; i < this.n; i++) {
+      if (this.clues[i]) continue;
+      if (this.cells[i] === EMPTY && need[i]) this.write(i, AUTO);
+      else if (this.cells[i] === AUTO && !need[i]) this.write(i, EMPTY);
     }
   }
 

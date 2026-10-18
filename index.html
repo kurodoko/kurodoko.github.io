@@ -40,11 +40,6 @@
           <button type="button" id="redo" title="Redo (Ctrl+Y or Ctrl+Shift+Z)">Redo</button>
           <button type="button" id="reset" title="Clear the board (undoable)">Reset</button>
         </span>
-        <span class="group">
-          <button type="button" id="zoom-out" title="Smaller" aria-label="Zoom out">−</button>
-          <button type="button" id="zoom-fit" title="Fit to window">Fit</button>
-          <button type="button" id="zoom-in" title="Larger" aria-label="Zoom in">+</button>
-        </span>
         <button type="button" id="copy-link" title="Copy a link that recreates this puzzle">Copy link</button>
       </div>
 
@@ -82,8 +77,8 @@
         <h3>Controls</h3>
         <ul>
           <li>Click a cell: empty → dot → shaded → empty. Right-click or Shift-click goes backwards.</li>
-          <li>Zoom with a pinch, Ctrl+scroll, the − / + buttons or the + / − keys (0 fits the board). Drag or scroll to move around a zoomed board.</li>
-          <li>Shading a cell dots its neighbours automatically (smaller dots). Unshading removes only those automatic dots.</li>
+          <li>The board always fits the window. To look closer, pinch to zoom (touch screen or trackpad).</li>
+          <li>Dots appear automatically (smaller) next to shaded cells, and on every cell a number sees once shading closes its view at exactly that count. They go away when their reason does; your own dots are never changed.</li>
           <li>A number turns grey once it plus the dots in an unbroken line from it add up to the number (or shading closes its view at exactly that count), and blue when it can no longer be met. Touching shaded cells and cut-off areas also turn blue.</li>
         </ul>
         <h3>Puzzles</h3>

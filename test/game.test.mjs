@@ -83,6 +83,23 @@ test('undo and redo restore whole strokes including automatic dots', () => {
   assert.ok(!g.redo());
 });
 
+test('a number completed by shading dots every cell it sees, until it is undone', () => {
+  const g = board();
+  g.click(at(2, 0)); // a manual dot in the 4's column
+  g.click(at(0, 2), true); // fill: the row view is just (0,1)
+  g.click(at(3, 0), true); // fill: column view (1,0), (2,0); 1 + 1 + 2 = 4
+  assert.equal(g.analyze().clueState[0], CLUE_DONE);
+  assert.equal(g.cells[at(1, 0)], AUTO, 'seen by the completed 4');
+  assert.equal(g.cells[at(2, 0)], DOT, 'manual dot stays manual');
+  g.undo();
+  assert.equal(g.cells[at(1, 0)], EMPTY, 'undo removes it again');
+  g.redo();
+  g.click(at(3, 0)); // unfill: the 4 now sees 5 cells
+  assert.equal(g.cells[at(1, 0)], EMPTY, 'reason gone, automatic dot removed');
+  assert.equal(g.cells[at(0, 1)], AUTO, 'still next to a filled cell');
+  assert.equal(g.cells[at(2, 0)], DOT);
+});
+
 test('each click is one undo step', () => {
   const g = board();
   g.click(at(3, 0));

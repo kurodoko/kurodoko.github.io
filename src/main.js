@@ -121,13 +121,9 @@ function generateInWorker(params, onProgress) {
 
 let current = null;
 let startToken = 0;
-let autoFit = true;
 let saveTimer = 0;
 
-const board = new Board($('board'), $('board-wrap'), {
-  onZoom: () => {
-    autoFit = false;
-  },
+const board = new Board($('board'), {
   onCommit: () => commit(),
   onHover: (i) => {
     $('coord').textContent = i >= 0 && current ? cellName(current.game.w, i) : '';
@@ -183,7 +179,6 @@ async function start(params, { push = false } = {}) {
 
   const game = new Game(puzzle, store.get('progress:' + id));
   current = { params, id, game };
-  autoFit = true;
   board.setGame(game);
   fitBoard();
   $('info').textContent =
@@ -231,21 +226,17 @@ function setStatus(text, kind = '') {
 }
 
 /**
- * Size the board's scrolling frame to the window space below it (at least 60%
- * of the window, so small screens scroll the page a little instead).
+ * Fit the whole board in its column and in the window space below it (but at
+ * least half the window height, so a short landscape phone still gets a
+ * usable board and scrolls the page instead). The board is never clipped;
+ * zooming in is left to the browser's pinch zoom.
  */
-function sizeFrame() {
-  const wrap = $('board-wrap');
-  const top = wrap.getBoundingClientRect().top + window.scrollY;
-  const height = Math.floor(Math.max(0.6 * window.innerHeight, window.innerHeight - top - 16));
-  wrap.style.maxHeight = `${height}px`;
-  return height;
-}
-
 function fitBoard() {
   if (!current) return;
-  const height = sizeFrame();
-  board.fit($('board-wrap').clientWidth, height - 8);
+  const wrap = $('board-wrap');
+  const top = wrap.getBoundingClientRect().top + window.scrollY;
+  const height = Math.max(0.5 * window.innerHeight, window.innerHeight - top - 16);
+  board.fit(wrap.clientWidth, height);
 }
 
 // --- form ---------------------------------------------------------------------
@@ -291,14 +282,6 @@ function act(fn) {
 $('undo').addEventListener('click', () => act((g) => g.undo()));
 $('redo').addEventListener('click', () => act((g) => g.redo()));
 $('reset').addEventListener('click', () => act((g) => g.reset()));
-function fitToWindow() {
-  autoFit = true;
-  fitBoard();
-}
-
-$('zoom-in').addEventListener('click', () => board.zoomBy(1.25));
-$('zoom-out').addEventListener('click', () => board.zoomBy(0.8));
-$('zoom-fit').addEventListener('click', fitToWindow);
 $('copy-link').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(location.href);
@@ -317,18 +300,10 @@ document.addEventListener('keydown', (e) => {
   } else if (mod && e.key.toLowerCase() === 'y') {
     e.preventDefault();
     act((g) => g.redo());
-  } else if (!mod && !e.altKey && current) {
-    // Plain + / - / 0 zoom the board (Ctrl/⌘ + / - stays browser zoom).
-    if (e.key === '+' || e.key === '=') board.zoomBy(1.25);
-    else if (e.key === '-' || e.key === '_') board.zoomBy(0.8);
-    else if (e.key === '0') fitToWindow();
   }
 });
 
-window.addEventListener('resize', () => {
-  if (autoFit) fitBoard();
-  else sizeFrame();
-});
+window.addEventListener('resize', fitBoard);
 window.addEventListener('popstate', () => start(readParams()));
 window.addEventListener('pagehide', saveProgress);
 document.addEventListener('visibilitychange', () => {

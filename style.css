@@ -263,15 +263,10 @@ button.icon {
   transition: width 0.1s linear;
 }
 
-/* The board scrolls inside this frame when zoomed in; main.js sets its
-   height to the window space below it. */
+/* main.js sizes the board to fit here; it is never clipped. */
 .board-wrap {
-  overflow: auto;
   max-width: 100%;
-  max-height: calc(100vh - 16px);
   padding-bottom: 4px;
-  overscroll-behavior: contain;
-  touch-action: pan-x pan-y;
 }
 
 body.busy .board-wrap {
@@ -279,9 +274,12 @@ body.busy .board-wrap {
   pointer-events: none;
 }
 
+/* Taps are moves: no double-tap zoom on the board, but pinch zoom and
+   scrolling stay with the browser. */
 #board {
   display: block;
   margin: 0 auto;
+  touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -289,11 +287,6 @@ body.busy .board-wrap {
 
 #board text {
   pointer-events: none;
-}
-
-.board-wrap.panning,
-.board-wrap.panning #board {
-  cursor: grabbing;
 }
 
 .board-bg {
