@@ -230,13 +230,28 @@ function setStatus(text, kind = '') {
  * least half the window height, so a short landscape phone still gets a
  * usable board and scrolls the page instead). The board is never clipped;
  * zooming in is left to the browser's pinch zoom.
+ *
+ * Sizes come from the layout viewport (documentElement.clientWidth/Height),
+ * which pinch zoom and a phone's sliding address bar leave alone; innerHeight
+ * changes with both and made the board jump while scrolling a zoomed page.
  */
+let fittedFor = '';
+
 function fitBoard() {
   if (!current) return;
+  const root = document.documentElement;
   const wrap = $('board-wrap');
-  const top = wrap.getBoundingClientRect().top + window.scrollY;
-  const height = Math.max(0.5 * window.innerHeight, window.innerHeight - top - 16);
+  const height = Math.max(0.5 * root.clientHeight, root.clientHeight - wrap.offsetTop - 16);
   board.fit(wrap.clientWidth, height);
+  fittedFor = `${root.clientWidth}x${root.clientHeight}`;
+}
+
+/** Refit only when the layout really changed size, and never mid pinch-zoom. */
+function onResize() {
+  const root = document.documentElement;
+  if (`${root.clientWidth}x${root.clientHeight}` === fittedFor) return;
+  if (window.visualViewport && window.visualViewport.scale > 1.01) return;
+  fitBoard();
 }
 
 // --- form ---------------------------------------------------------------------
@@ -303,7 +318,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-window.addEventListener('resize', fitBoard);
+window.addEventListener('resize', onResize);
 window.addEventListener('popstate', () => start(readParams()));
 window.addEventListener('pagehide', saveProgress);
 document.addEventListener('visibilitychange', () => {
