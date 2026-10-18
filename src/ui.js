@@ -20,6 +20,28 @@ const PAD = 0.3 * U;
 /** Pointer travel (px) that turns a press into a scroll instead of a click. */
 const CLICK_SLOP = 10;
 
+/** '#rrggbb' → [r, g, b]. */
+function hexColor(s) {
+  const m = /#([0-9a-f]{6})/i.exec(s);
+  const v = m ? parseInt(m[1], 16) : 0x808080;
+  return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+}
+
+/** Hue (degrees), saturation and lightness (0–1) → [r, g, b]. */
+function hsl(h, s, l) {
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    return 255 * (l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1)));
+  };
+  return [f(0), f(8), f(4)];
+}
+
+const mix = (a, b, t) => a.map((v, k) => v + (b[k] - v) * t);
+const smooth = (a, b, t) => {
+  const x = Math.min(1, Math.max(0, (t - a) / (b - a)));
+  return x * x * (3 - 2 * x);
+};
+
 function el(name, attrs = {}, parent = null) {
   const node = document.createElementNS(NS, name);
   for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
@@ -55,6 +77,7 @@ export class Board {
   }
 
   setGame(game) {
+    this.stopCelebration();
     this.game = game;
     const { w, h } = game;
     const svg = this.svg;
@@ -145,8 +168,52 @@ export class Board {
       }
     }
     this.svg.classList.toggle('solved', a.solved);
+    if (!a.solved) this.stopCelebration();
     this.analysis = a;
     return a;
+  }
+
+  /**
+   * Just solved: the shaded cells fade into an iridescent patchwork of hues
+   * (each cell offset by a scattered phase plus a diagonal sweep), shimmer,
+   * then settle on the solved green. With reduced motion, a short fade.
+   */
+  celebrate() {
+    this.stopCelebration();
+    const { w, n, cells } = this.game;
+    const items = [];
+    for (let i = 0; i < n; i++) {
+      if (cells[i] !== FILLED) continue;
+      const scatter = (Math.imul(i + 1, 2654435761) >>> 0) / 4294967296;
+      items.push({ rect: this.rects[i], phase: scatter * 160 + (Math.floor(i / w) + (i % w)) * 23 });
+    }
+    const style = getComputedStyle(this.svg);
+    const from = hexColor(style.getPropertyValue('--filled'));
+    const to = hexColor(style.getPropertyValue('--ok'));
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const duration = reduce ? 800 : 2600;
+    const start = performance.now();
+    this.celebrating = items;
+    const frame = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      for (const { rect, phase } of items) {
+        const rgb = reduce
+          ? mix(from, to, smooth(0, 1, t))
+          : mix(mix(from, hsl(phase + t * 540, 0.75, 0.58), smooth(0, 0.18, t)), to, smooth(0.68, 1, t));
+        rect.style.fill = `rgb(${rgb.map(Math.round).join(',')})`;
+      }
+      if (t < 1) this.anim = requestAnimationFrame(frame);
+      else this.stopCelebration();
+    };
+    this.anim = requestAnimationFrame(frame);
+  }
+
+  /** End the solve animation; the stylesheet's colours take over again. */
+  stopCelebration() {
+    if (this.anim) cancelAnimationFrame(this.anim);
+    this.anim = 0;
+    for (const { rect } of this.celebrating || []) rect.style.fill = '';
+    this.celebrating = null;
   }
 
   /**

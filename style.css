@@ -368,6 +368,8 @@ body.busy .board-wrap {
   stroke: var(--ink);
   stroke-width: 2.5;
   vector-effect: non-scaling-stroke;
+  /* Turns green gradually, in step with the solve animation. */
+  transition: stroke 2.4s ease-in, stroke-width 2.4s ease-in;
 }
 
 #board.solved .cell.filled {

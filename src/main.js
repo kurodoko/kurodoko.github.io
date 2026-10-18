@@ -211,9 +211,14 @@ function commit() {
   board.setHint([]);
   // Time the solve when a move completes the puzzle (cleared if it is undone).
   const { game } = current;
+  let justSolved = false;
   if (!game.analyze().solved) game.solvedAt = 0;
-  else if (!game.solvedAt) game.solvedAt = Date.now();
+  else if (!game.solvedAt) {
+    game.solvedAt = Date.now();
+    justSolved = true;
+  }
   refresh();
+  if (justSolved) board.celebrate();
   scheduleSave();
 }
 
