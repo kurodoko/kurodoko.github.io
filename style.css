@@ -339,6 +339,10 @@ body.busy .board-wrap {
   vector-effect: non-scaling-stroke;
 }
 
+#board.solved .cell.filled {
+  fill: var(--ok);
+}
+
 #board.solved .grid-border {
   stroke: var(--ok);
   stroke-width: 3;

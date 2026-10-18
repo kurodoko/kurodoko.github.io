@@ -215,7 +215,7 @@ function refresh() {
   $('undo').disabled = game.history.length === 0;
   $('redo').disabled = game.future.length === 0;
   if (a.solved) {
-    setStatus('Solved! Every rule holds.', 'ok');
+    setStatus('Solved!', 'ok');
     return;
   }
   let problems = a.adjacent.reduce((s, v) => s + v, 0) / 2;
