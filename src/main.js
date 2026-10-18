@@ -255,6 +255,15 @@ function onResize() {
   fitBoard();
 }
 
+// The column can also narrow without a window resize, e.g. when a scrollbar
+// appears as the page grows. Refit whenever the board no longer fits it (only
+// then, so a scrollbar that comes and goes cannot make the fit oscillate).
+if (window.ResizeObserver) {
+  new ResizeObserver(() => {
+    if (current && Number($('board').getAttribute('width')) > $('board-wrap').clientWidth) fitBoard();
+  }).observe($('board-wrap'));
+}
+
 // --- form ---------------------------------------------------------------------
 
 function fillForm(p) {

@@ -39,6 +39,13 @@ jobs:
         run: |
           mkdir _site
           cp -r index.html style.css favicon.svg LICENSE src _site/
+          # Stamp the commit into every CSS/JS URL, so a fresh page never runs
+          # with stale cached files (Pages lets browsers cache for 10 minutes).
+          v=${GITHUB_SHA::8}
+          sed -i "s#href=\"style.css\"#href=\"style.css?v=$v\"#; s#src=\"src/main.js\"#src=\"src/main.js?v=$v\"#" _site/index.html
+          sed -i -E "s#(from '\./[a-z]+\.js)'#\1?v=$v'#; s#(new URL\('\./worker\.js)'#\1?v=$v'#" _site/src/*.js
+          grep -q "src/main.js?v=$v" _site/index.html
+          ! grep -nE "from '\./[a-z]+\.js'|URL\('\./worker\.js'" _site/src/*.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
