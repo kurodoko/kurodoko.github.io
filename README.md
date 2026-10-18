@@ -31,6 +31,12 @@ same puzzle.
   add up to the number (no shaded cells needed at the ends), or when shading
   closes its view at exactly that count. It turns blue when it can no longer
   be met. Touching shaded cells and cut-off areas also show in blue.
+- Hint (H) outlines in pink where to look next: a number that decides
+  something on its own, or a small area for a connectivity or what-if step.
+  It never says what follows. If a mark is wrong, each press goes one step
+  further: "there is a mistake", then the wrong marks outlined, then back to
+  the last position without mistakes (redo restores). Any move starts that
+  over. Hints are counted, and the count is saved with your progress.
 - Undo/redo (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z), reset, and named
   checkpoints you can revert to at any time. Progress and checkpoints are kept
   in the browser per puzzle.
@@ -101,6 +107,7 @@ python3 -m http.server                     # then open http://localhost:8000
 | `src/main.js` | URL parameters, storage, toolbar, checkpoints |
 | `src/ui.js` | SVG board and pointer input |
 | `src/game.js` | Player marks, automatic dots, undo, checkpoints, rule checks |
+| `src/hint.js` | Mistake checks and where-to-look hints |
 | `src/generator.js`, `src/solver.js`, `src/symmetry.js`, `src/rng.js`, `src/grid.js` | Generator and solver |
 | `src/worker.js` | Runs the generator off the main thread |
 | `test/` | Tests |

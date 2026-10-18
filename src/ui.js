@@ -66,6 +66,7 @@ export class Board {
     const cellLayer = el('g', {}, svg);
     const lineLayer = el('g', {}, svg);
     const markLayer = el('g', {}, svg);
+    this.hintLayer = el('g', {}, svg);
     const labelLayer = el('g', { class: 'labels' }, svg);
     this.labelLayer = labelLayer;
 
@@ -146,6 +147,34 @@ export class Board {
     this.svg.classList.toggle('solved', a.solved);
     this.analysis = a;
     return a;
+  }
+
+  /**
+   * Outline cells in pink for a hint: { cell, kind } with kind 'number' or
+   * 'mistake' for that cell, 'area' for the 3×3 block around it.
+   */
+  setHint(items) {
+    if (!this.game) return;
+    this.hintLayer.replaceChildren();
+    const { w, h } = this.game;
+    const inset = 0.06 * U;
+    for (const { cell, kind } of items) {
+      const r = Math.floor(cell / w);
+      const c = cell % w;
+      const k = kind === 'area' ? 1 : 0;
+      const r0 = Math.max(0, r - k);
+      const c0 = Math.max(0, c - k);
+      const rows = Math.min(h - 1, r + k) - r0 + 1;
+      const cols = Math.min(w - 1, c + k) - c0 + 1;
+      el('rect', {
+        x: MARGIN_LEFT + c0 * U + inset,
+        y: MARGIN_TOP + r0 * U + inset,
+        width: cols * U - 2 * inset,
+        height: rows * U - 2 * inset,
+        rx: 0.12 * U,
+        class: `hint-mark ${kind}`,
+      }, this.hintLayer);
+    }
   }
 
   // --- size -----------------------------------------------------------------

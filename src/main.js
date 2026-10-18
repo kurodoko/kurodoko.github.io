@@ -4,6 +4,7 @@ import { Game } from './game.js';
 import { Board } from './ui.js';
 import { GENERATOR_VERSION, DIFFICULTIES, checkParams, generate } from './generator.js';
 import { MIN_SIZE, MAX_SIZE, cellName } from './grid.js';
+import { findMistakes, findHint, rewindToCorrect } from './hint.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -178,11 +179,11 @@ async function start(params, { push = false } = {}) {
   showProgress(null);
 
   const game = new Game(puzzle, store.get('progress:' + id));
-  current = { params, id, game };
+  current = { params, id, game, solution: puzzle.solution };
+  mistakeStep = 0;
   board.setGame(game);
   fitBoard();
-  $('info').textContent =
-    `${params.w}×${params.h} · ${params.difficulty} · seed ${params.seed} · ${game.clues.filter(Boolean).length} numbers`;
+  updateInfo();
   renderCheckpoints();
   refresh();
   if (params.linkVersion && params.linkVersion !== String(GENERATOR_VERSION)) {
@@ -190,9 +191,24 @@ async function start(params, { push = false } = {}) {
   }
 }
 
-/** After any change to the game: save (soon), update buttons and status. */
+function updateInfo() {
+  const { params, game } = current;
+  const hints = game.hints ? ` · ${plural(game.hints, 'hint')}` : '';
+  $('info').textContent =
+    `${params.w}×${params.h} · ${params.difficulty} · seed ${params.seed} · ${game.clues.filter(Boolean).length} numbers${hints}`;
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/** After any change to the game: clear hints, save (soon), update buttons and status. */
 function commit() {
+  mistakeStep = 0;
+  board.setHint([]);
   refresh();
+  scheduleSave();
+}
+
+function scheduleSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveProgress, 250);
 }
@@ -210,7 +226,7 @@ function refresh() {
   $('undo').disabled = game.history.length === 0;
   $('redo').disabled = game.future.length === 0;
   if (a.solved) {
-    setStatus('Solved!', 'ok');
+    setStatus(game.hints ? `Solved! (${plural(game.hints, 'hint')})` : 'Solved!', 'ok');
     return;
   }
   let problems = a.adjacent.reduce((s, v) => s + v, 0) / 2;
@@ -304,6 +320,49 @@ function act(fn) {
   commit();
 }
 
+// --- hints --------------------------------------------------------------------
+
+/**
+ * With a wrong mark on the board, each press goes one step further: say there
+ * is a mistake, outline the wrong marks, then go back to the last position
+ * without mistakes. Any action (see commit) starts over. Otherwise a hint
+ * only outlines where to look. Every press is counted.
+ */
+let mistakeStep = 0;
+
+function hint() {
+  if (!current) return;
+  const { game, solution } = current;
+  if (game.analyze().solved) return;
+  game.hints++;
+  const wrong = findMistakes(game, solution);
+  if (wrong.length) {
+    mistakeStep = Math.min(mistakeStep + 1, 3);
+    if (mistakeStep === 1) {
+      board.setHint([]);
+      setStatus('There is a mistake.', 'tip');
+    } else if (mistakeStep === 2) {
+      board.setHint(wrong.map((cell) => ({ cell, kind: 'mistake' })));
+      setStatus(wrong.length === 1 ? 'The wrong mark is outlined in pink.' : `The ${wrong.length} wrong marks are outlined in pink.`, 'tip');
+    } else {
+      const { undone, erased } = rewindToCorrect(game, solution);
+      commit();
+      setStatus(erased
+        ? `Removed ${erased === 1 ? 'the wrong mark' : `the ${erased} wrong marks`}.`
+        : `Went back ${plural(undone, 'move')} to the last position without mistakes. Redo brings them back.`, 'tip');
+    }
+  } else {
+    mistakeStep = 0;
+    const h = findHint(game);
+    board.setHint([h]);
+    const where = cellName(game.w, h.cell);
+    setStatus(h.kind === 'number' ? `Look at the ${game.clues[h.cell]} in ${where}.` : `Look around ${where}.`, 'tip');
+  }
+  updateInfo();
+  scheduleSave();
+}
+
+$('hint').addEventListener('click', hint);
 $('undo').addEventListener('click', () => act((g) => g.undo()));
 $('redo').addEventListener('click', () => act((g) => g.redo()));
 $('reset').addEventListener('click', () => act((g) => g.reset()));
@@ -325,6 +384,8 @@ document.addEventListener('keydown', (e) => {
   } else if (mod && e.key.toLowerCase() === 'y') {
     e.preventDefault();
     act((g) => g.redo());
+  } else if (!mod && !e.altKey && e.key.toLowerCase() === 'h') {
+    hint();
   }
 });
 

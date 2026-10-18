@@ -14,6 +14,8 @@
   --done: #bcbab3;
   --error: #1a66e8;
   --error-tint: rgba(26, 102, 232, 0.16);
+  --hint: #d63384;
+  --hint-tint: rgba(214, 51, 132, 0.14);
   --ok: #1d7f47;
   --hover: #efede8;
   color-scheme: light;
@@ -38,6 +40,8 @@
     --done: #abb0b8;
     --error: #9cc4ff;
     --error-tint: rgba(156, 196, 255, 0.3);
+    --hint: #ff7ac6;
+    --hint-tint: rgba(255, 122, 198, 0.2);
     --ok: #4cc27f;
     --hover: #26262a;
     color-scheme: dark;
@@ -248,6 +252,24 @@ button.icon {
 .status.ok {
   color: var(--ok);
   font-weight: 600;
+}
+
+.status.tip {
+  color: var(--hint);
+  font-weight: 600;
+}
+
+/* Hint outlines: where to look, or a wrong mark (outline only). */
+.hint-mark {
+  fill: var(--hint-tint);
+  stroke: var(--hint);
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.hint-mark.mistake {
+  fill: none;
 }
 
 .status.error {

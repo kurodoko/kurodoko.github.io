@@ -39,6 +39,8 @@ export class Game {
     this.future = [];
     this.checkpoints = [];
     this.changes = null;
+    this.lastMove = -1;
+    this.hints = 0;
     if (saved) this.restore(saved);
     // Numbers that are complete from the start (they see exactly their count
     // on an empty board) dot their cells straight away.
@@ -53,11 +55,14 @@ export class Game {
     this.cells[i] = v;
   }
 
-  /** Set one cell, then bring the automatic dots up to date. */
-  setState(i, target) {
-    if (this.clues[i]) return;
-    this.write(i, target);
+  /** Run fn's writes, then bring the automatic dots up to date, as one undo step. */
+  step(fn) {
+    this.changes = new Map();
+    fn();
     this.updateAutoDots();
+    const changes = this.changes;
+    this.changes = null;
+    this.record(changes);
   }
 
   /** Cells that need an automatic dot (see the header comment). */
@@ -99,12 +104,16 @@ export class Game {
   /** Click cell i: advance its state (with automatic dots) as one undo step. */
   click(i, reverse = false) {
     if (i < 0 || this.clues[i]) return false;
-    this.changes = new Map();
-    this.setState(i, nextState(this.cells[i], reverse));
-    const changes = this.changes;
-    this.changes = null;
-    this.record(changes);
+    this.lastMove = i;
+    this.step(() => this.write(i, nextState(this.cells[i], reverse)));
     return true;
+  }
+
+  /** Clear the given cells (one undo step). */
+  erase(list) {
+    this.step(() => {
+      for (const i of list) if (!this.clues[i]) this.write(i, EMPTY);
+    });
   }
 
   /** Push the changes in old (cell → previous value) as one undo step. */
@@ -118,12 +127,9 @@ export class Game {
 
   /** Replace every cell with values (one undo step). */
   replaceAll(values) {
-    this.changes = new Map();
-    for (let i = 0; i < this.n; i++) if (!this.clues[i]) this.write(i, values[i]);
-    this.updateAutoDots();
-    const changes = this.changes;
-    this.changes = null;
-    this.record(changes);
+    this.step(() => {
+      for (let i = 0; i < this.n; i++) if (!this.clues[i]) this.write(i, values[i]);
+    });
   }
 
   undo() {
@@ -232,7 +238,7 @@ export class Game {
   // --- persistence ----------------------------------------------------------
 
   serialize() {
-    return { cells: encodeCells(this.cells), checkpoints: this.checkpoints };
+    return { cells: encodeCells(this.cells), checkpoints: this.checkpoints, hints: this.hints };
   }
 
   restore(saved) {
@@ -240,6 +246,7 @@ export class Game {
       this.cells = decodeCells(saved.cells, this.n);
       for (let i = 0; i < this.n; i++) if (this.clues[i]) this.cells[i] = EMPTY;
     }
+    if (Number.isInteger(saved.hints) && saved.hints > 0) this.hints = saved.hints;
     if (Array.isArray(saved.checkpoints)) {
       this.checkpoints = saved.checkpoints.filter((cp) => typeof cp.cells === 'string' && cp.cells.length === this.n);
     }
