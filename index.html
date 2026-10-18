@@ -56,7 +56,9 @@
           <button type="button" id="redo" title="Redo (Ctrl+Y or Ctrl+Shift+Z)">Redo</button>
           <button type="button" id="hint" title="Where to look next (H)">Hint</button>
         </div>
-        <svg id="board" xmlns="http://www.w3.org/2000/svg" role="img"></svg>
+        <div id="board-scroll" class="board-scroll">
+          <svg id="board" xmlns="http://www.w3.org/2000/svg" role="img"></svg>
+        </div>
       </div>
     </section>
 
@@ -84,7 +86,7 @@
           <li>Click a cell: empty → dot → shaded → empty. Right-click or Shift-click goes backwards.</li>
           <li>Hint (H) outlines in pink where to look next. If a mark is wrong, it says so; press again to see which, and again to go back to before it. Hints are counted.</li>
           <li>The puzzle is finished when every cell is shaded or dotted and every rule holds. The clock starts when a puzzle is first shown (it keeps running if you leave); finishing shows the time taken.</li>
-          <li>The board always fits the window. To look closer, pinch to zoom (touch screen or trackpad).</li>
+          <li>The board fits the window when it can, but cells never get smaller than 20 pixels on a touch screen (14 with a mouse); a bigger board scrolls. To look closer, pinch to zoom (touch screen or trackpad).</li>
           <li>Dots appear automatically (smaller) next to shaded cells and go away when the shading does; your own dots are never changed.</li>
           <li>A number turns grey once every cell it sees is dotted (it plus the dots in unbroken lines from it add up to the number), and blue when it can no longer be met. Touching shaded cells and cut-off areas also turn blue.</li>
         </ul>

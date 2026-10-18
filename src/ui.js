@@ -275,15 +275,18 @@ export class Board {
 
   // --- size -----------------------------------------------------------------
 
-  /** Size the board to fit inside maxWidth × maxHeight (cells at most 48px). */
-  fit(maxWidth, maxHeight) {
-    this.scale = Math.min(maxWidth / this.width, maxHeight / this.height, 48 / U);
+  /**
+   * Size the board to fit inside maxWidth × maxHeight, with cells at most
+   * 48px and at least minCell px (then it is bigger than the space).
+   */
+  fit(maxWidth, maxHeight, minCell = 0) {
+    this.scale = Math.max(minCell / U, Math.min(maxWidth / this.width, maxHeight / this.height, 48 / U));
     this.applyScale();
   }
 
   applyScale() {
     if (!this.game) return;
-    // Round down so the board never spills over its container.
+    // Round down so a board that fits never spills over its container.
     this.svg.setAttribute('width', Math.floor(this.width * this.scale));
     this.svg.setAttribute('height', Math.floor(this.height * this.scale));
     // Lets the page centre things over the grid rather than the whole board.

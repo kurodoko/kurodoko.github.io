@@ -263,8 +263,10 @@ function setStatus(text, kind = '') {
 /**
  * Fit the whole board in its column and in the window space below it (but at
  * least half the window height, so a short landscape phone still gets a
- * usable board and scrolls the page instead). The board is never clipped;
- * zooming in is left to the browser's pinch zoom.
+ * usable board and scrolls the page instead). Cells never get smaller than
+ * MIN_CELL, though: a bigger board scrolls sideways in its column and down
+ * the page, so it is never clipped. Zooming in is left to the browser's
+ * pinch zoom.
  *
  * Sizes come from the layout viewport (documentElement.clientWidth/Height),
  * which pinch zoom and a phone's sliding address bar leave alone; innerHeight
@@ -272,14 +274,23 @@ function setStatus(text, kind = '') {
  */
 let fittedFor = '';
 
+/** Smallest cell size in CSS pixels: big enough for a finger, or for a mouse. */
+const MIN_CELL = window.matchMedia('(pointer: coarse)').matches ? 20 : 14;
+
 function fitBoard() {
   if (!current) return;
   const root = document.documentElement;
   const wrap = $('board-wrap');
   const above = wrap.offsetTop + $('board-tools').offsetHeight;
   const height = Math.max(0.5 * root.clientHeight, root.clientHeight - above - 16);
-  board.fit(wrap.clientWidth, height);
+  board.fit(wrap.clientWidth, height, MIN_CELL);
   fittedFor = `${root.clientWidth}x${root.clientHeight}`;
+  markWide();
+}
+
+/** Note whether the board is wider than its column (and so scrolls sideways). */
+function markWide() {
+  $('board-wrap').classList.toggle('wide', Number($('board').getAttribute('width')) > $('board-wrap').clientWidth);
 }
 
 /** Refit only when the layout really changed size, and never mid pinch-zoom. */
@@ -295,8 +306,18 @@ function onResize() {
 // then, so a scrollbar that comes and goes cannot make the fit oscillate).
 if (window.ResizeObserver) {
   new ResizeObserver(() => {
-    if (current && Number($('board').getAttribute('width')) > $('board-wrap').clientWidth) fitBoard();
+    if (!current) return;
+    if (Number($('board').getAttribute('width')) > $('board-wrap').clientWidth) fitBoard();
+    else markWide();
   }).observe($('board-wrap'));
+}
+
+// Pinch zoom enlarges everything, grid lines included; the stylesheet divides
+// line widths by --zoom so they stay as thin on screen as without zoom.
+if (window.visualViewport) {
+  const setZoom = () => document.documentElement.style.setProperty('--zoom', Math.max(1, window.visualViewport.scale));
+  window.visualViewport.addEventListener('resize', setZoom);
+  setZoom();
 }
 
 // --- form ---------------------------------------------------------------------
