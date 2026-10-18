@@ -189,36 +189,44 @@ export class Board {
   /**
    * Just solved: the shaded cells fade into a muted patchwork of hues around
    * the green (each cell offset by a scattered phase plus a diagonal sweep),
-   * shimmer,
-   * then settle on the solved green. With reduced motion, a short fade.
+   * shimmer, then settle on the solved green. The dots shimmer along with
+   * them and return to their usual colour. With reduced motion, the shaded
+   * cells just fade to green.
    */
   celebrate() {
     this.stopCelebration();
     const { w, n, cells } = this.game;
+    const style = getComputedStyle(this.svg);
+    const filled = hexColor(style.getPropertyValue('--filled'));
+    const dot = hexColor(style.getPropertyValue('--dot'));
+    const ok = hexColor(style.getPropertyValue('--ok'));
+    // Hues drift either side of the solved green, never more saturated or
+    // brighter than the green itself. Dots take a lightness between their
+    // own and the green's so they stay visible on the dotted background.
+    const [okHue, okSat, okLight] = toHsl(ok);
+    const dotLight = (toHsl(dot)[2] + okLight) / 2;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const items = [];
     for (let i = 0; i < n; i++) {
-      if (cells[i] !== FILLED) continue;
       const scatter = (Math.imul(i + 1, 2654435761) >>> 0) / 4294967296;
-      items.push({ rect: this.rects[i], phase: scatter * 160 + (Math.floor(i / w) + (i % w)) * 23 });
+      const phase = scatter * 160 + (Math.floor(i / w) + (i % w)) * 23;
+      if (cells[i] === FILLED) {
+        items.push({ node: this.rects[i], phase, from: filled, to: ok, sat: okSat * 0.7, light: okLight });
+      } else if ((cells[i] === DOT || cells[i] === AUTO) && this.dots[i] && !reduce) {
+        items.push({ node: this.dots[i], phase, from: dot, to: dot, sat: okSat * 0.6, light: dotLight });
+      }
     }
-    const style = getComputedStyle(this.svg);
-    const from = hexColor(style.getPropertyValue('--filled'));
-    const to = hexColor(style.getPropertyValue('--ok'));
-    // A soft patchwork around the solved green: hues drift either side of it,
-    // never more saturated or brighter than the green itself.
-    const [okHue, okSat, okLight] = toHsl(to);
-    const patch = (phase, t) => hsl(okHue - 10 + 40 * Math.sin(((phase + t * 540) * Math.PI) / 180), okSat * 0.7, okLight);
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const duration = reduce ? 800 : 2600;
     const start = performance.now();
     this.celebrating = items;
     const frame = (now) => {
       const t = Math.min(1, (now - start) / duration);
-      for (const { rect, phase } of items) {
+      for (const { node, phase, from, to, sat, light } of items) {
+        const hue = okHue - 10 + 40 * Math.sin(((phase + t * 540) * Math.PI) / 180);
         const rgb = reduce
           ? mix(from, to, smooth(0, 1, t))
-          : mix(mix(from, patch(phase, t), smooth(0, 0.18, t)), to, smooth(0.6, 1, t));
-        rect.style.fill = `rgb(${rgb.map(Math.round).join(',')})`;
+          : mix(mix(from, hsl(hue, sat, light), smooth(0, 0.18, t)), to, smooth(0.6, 1, t));
+        node.style.fill = `rgb(${rgb.map(Math.round).join(',')})`;
       }
       if (t < 1) this.anim = requestAnimationFrame(frame);
       else this.stopCelebration();
@@ -230,7 +238,7 @@ export class Board {
   stopCelebration() {
     if (this.anim) cancelAnimationFrame(this.anim);
     this.anim = 0;
-    for (const { rect } of this.celebrating || []) rect.style.fill = '';
+    for (const { node } of this.celebrating || []) node.style.fill = '';
     this.celebrating = null;
   }
 
