@@ -100,6 +100,19 @@ test('a number completed by shading dots every cell it sees, until it is undone'
   assert.equal(g.cells[at(2, 0)], DOT);
 });
 
+test('numbers complete from the start dot their cells on load and after reset', () => {
+  // 3×3 with a 5 in the middle: it sees all 5 cells of its row and column.
+  const g = new Game({ w: 3, h: 3, clues: [0, 0, 0, 0, 5, 0, 0, 0, 0] });
+  const cross = [1, 3, 5, 7];
+  assert.ok(cross.every((i) => g.cells[i] === AUTO));
+  assert.ok([0, 2, 6, 8].every((i) => g.cells[i] === EMPTY));
+  assert.equal(g.history.length, 0, 'not an undo step');
+  g.click(0, true);
+  g.reset();
+  assert.ok(cross.every((i) => g.cells[i] === AUTO), 'still dotted after reset');
+  assert.equal(g.cells[0], EMPTY);
+});
+
 test('each click is one undo step', () => {
   const g = board();
   g.click(at(3, 0));

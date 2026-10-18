@@ -6,8 +6,8 @@
   --line: #dcd9d2;
   --grid: #c9c6be;
   --grid-major: #a29f97;
-  --cell: #f5f3ed;
-  --cell-dot: #fefdfb;
+  --cell: #eeebe3;
+  --cell-dot: #ffffff;
   --filled: #1c1c1e;
   --dot: #4a4a4f;
   --dot-auto: #a3a3a8;
@@ -29,7 +29,7 @@
     --grid: #3b3b41;
     --grid-major: #5c5c63;
     --cell: #202024;
-    --cell-dot: #2a2a2f;
+    --cell-dot: #36363c;
     --filled: #e6e6ea;
     --dot: #c7c7cd;
     --dot-auto: #74747b;

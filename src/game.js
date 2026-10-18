@@ -40,6 +40,9 @@ export class Game {
     this.checkpoints = [];
     this.changes = null;
     if (saved) this.restore(saved);
+    // Numbers that are complete from the start (they see exactly their count
+    // on an empty board) dot their cells straight away.
+    this.updateAutoDots();
   }
 
   // --- low-level writes -----------------------------------------------------
@@ -115,14 +118,12 @@ export class Game {
 
   /** Replace every cell with values (one undo step). */
   replaceAll(values) {
-    const old = new Map();
-    for (let i = 0; i < this.n; i++) {
-      if (this.cells[i] !== values[i]) {
-        old.set(i, this.cells[i]);
-        this.cells[i] = values[i];
-      }
-    }
-    this.record(old);
+    this.changes = new Map();
+    for (let i = 0; i < this.n; i++) if (!this.clues[i]) this.write(i, values[i]);
+    this.updateAutoDots();
+    const changes = this.changes;
+    this.changes = null;
+    this.record(changes);
   }
 
   undo() {
