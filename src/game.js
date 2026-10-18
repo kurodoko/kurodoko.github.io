@@ -169,11 +169,10 @@ export class Game {
 
   /**
    * Rule check for display.
-   *   clueState[i]  CLUE_DONE as soon as the number plus the unbroken dots
-   *                 (or numbers) around it reach exactly the number, or when
-   *                 the count to the first filled cell or edge in each
-   *                 direction is exactly the number; CLUE_ERROR when it can no
-   *                 longer be met.
+   *   clueState[i]  CLUE_DONE when the number plus the unbroken dots (or
+   *                 numbers) around it reach exactly the number, i.e. every
+   *                 cell it sees is dotted; CLUE_ERROR when it can no longer
+   *                 be met.
    *   adjacent[i]   1 for filled cells touching another filled cell.
    *   isolated[i]   1 for unfilled cells cut off from the largest unfilled area.
    *   solved        every rule holds (unmarked cells count as unshaded).
@@ -215,7 +214,7 @@ export class Game {
         }
       }
       if (min > target || max < target) clueState[p] = CLUE_ERROR;
-      else if (min === target || max === target) clueState[p] = CLUE_DONE;
+      else if (min === target) clueState[p] = CLUE_DONE;
       if (max !== target) allDone = false;
     }
 

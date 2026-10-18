@@ -87,7 +87,7 @@ test('completed numbers do not dot the cells they see', () => {
   // 3×3 with a 5 in the middle: it sees all 5 cells of its row and column.
   const g = new Game({ w: 3, h: 3, clues: [0, 0, 0, 0, 5, 0, 0, 0, 0] });
   assert.ok(g.cells.every((v) => v === EMPTY));
-  assert.equal(g.analyze().clueState[4], CLUE_DONE);
+  assert.equal(g.analyze().clueState[4], CLUE_OPEN, 'not grey until its cells are dotted');
   g.click(0, true);
   assert.deepEqual([1, 3].map((i) => g.cells[i]), [AUTO, AUTO], 'dots only next to the filled cell');
   assert.deepEqual([5, 7].map((i) => g.cells[i]), [EMPTY, EMPTY]);
@@ -141,9 +141,12 @@ test('numbers grey out exactly when satisfied and turn blue when impossible', ()
   g.click(at(0, 2), true); // row view now 2 cells
   assert.equal(g.analyze().clueState[0], CLUE_OPEN);
   g.click(at(3, 0), true); // column view now 3 cells: total 2 + 3 - 1 = 4
+  assert.equal(g.analyze().clueState[0], CLUE_OPEN, 'count met, but (1,0) is not dotted yet');
+  g.click(at(1, 0)); // dot it: every cell the 4 sees is dotted
   assert.equal(g.analyze().clueState[0], CLUE_DONE);
   g.click(at(2, 0)); // auto dot → filled: column view 2 cells, total 3 < 4
   assert.equal(g.analyze().clueState[0], CLUE_ERROR);
+  g.undo();
   g.undo();
   g.undo();
   // Dots making the certain view too long are also an error.

@@ -25,10 +25,10 @@ same puzzle.
 - Dotted cells have a slightly paler background than untouched ones.
 - Dots appear automatically (drawn smaller) next to shaded cells and go away
   when the shading does; dots you placed are never changed.
-- A number turns grey as soon as it plus the dots in an unbroken line from it
-  add up to the number (no shaded cells needed at the ends), or when shading
-  closes its view at exactly that count. It turns blue when it can no longer
-  be met. Touching shaded cells and cut-off areas also show in blue.
+- A number turns grey once every cell it sees is dotted: it plus the dots in
+  unbroken lines from it add up to the number (no shaded cells needed at the
+  ends). It turns blue when it can no longer be met. Touching shaded cells
+  and cut-off areas also show in blue.
 - Hint (H) outlines in pink where to look next: a number that decides
   something on its own, or a small area for a connectivity or what-if step.
   It never says what follows. If a mark is wrong, each press goes one step
