@@ -55,6 +55,12 @@ const smooth = (a, b, t) => {
   return x * x * (3 - 2 * x);
 };
 
+/** Display an SVG element, or take it out of the rendering altogether. */
+function show(node, visible) {
+  if (visible) node.removeAttribute('display');
+  else node.setAttribute('display', 'none');
+}
+
 function el(name, attrs = {}, parent = null) {
   const node = document.createElementNS(NS, name);
   for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
@@ -62,9 +68,15 @@ function el(name, attrs = {}, parent = null) {
   return node;
 }
 
+/** Rows per band of the board (see setGame). */
+const BAND = 8;
+
 export class Board {
   constructor(svg, { onCommit = () => {}, onHover = () => {} } = {}) {
+    // The base SVG (background and labels) sits in a container that also
+    // holds the board's other layers; it sets the size, the layers follow.
     this.svg = svg;
+    this.root = svg.parentElement;
     this.onCommit = onCommit;
     this.onHover = onHover;
     this.game = null;
@@ -75,12 +87,13 @@ export class Board {
     this.touchPointers = new Set();
     this.hover = -1;
 
-    svg.addEventListener('contextmenu', (e) => e.preventDefault());
-    svg.addEventListener('pointerdown', (e) => this.pointerDown(e));
-    svg.addEventListener('pointermove', (e) => this.pointerMove(e));
-    svg.addEventListener('pointerup', (e) => this.pointerUp(e));
-    svg.addEventListener('pointercancel', (e) => this.pointerEnd(e));
-    svg.addEventListener('pointerleave', () => this.setHover(-1));
+    const root = this.root;
+    root.addEventListener('contextmenu', (e) => e.preventDefault());
+    root.addEventListener('pointerdown', (e) => this.pointerDown(e));
+    root.addEventListener('pointermove', (e) => this.pointerMove(e));
+    root.addEventListener('pointerup', (e) => this.pointerUp(e));
+    root.addEventListener('pointercancel', (e) => this.pointerEnd(e));
+    root.addEventListener('pointerleave', () => this.setHover(-1));
   }
 
   get width() {
@@ -96,17 +109,32 @@ export class Board {
     this.game = game;
     const { w, h } = game;
     const svg = this.svg;
+    for (const node of [...this.root.children]) if (node !== svg) node.remove();
     svg.replaceChildren();
-    svg.setAttribute('viewBox', `0 0 ${this.width} ${this.height}`);
+    const viewBox = `0 0 ${this.width} ${this.height}`;
+    svg.setAttribute('viewBox', viewBox);
     svg.setAttribute('aria-label', `Kurodoko board, ${w} by ${h}`);
 
+    // The board is a stack of SVG layers of the same size, from the bottom:
+    // background and labels (the base SVG), cell fills, grid lines, dots and
+    // numbers, then hints and the hit area. Fills and marks come in bands of
+    // BAND rows, each its own SVG: the browser repaints only the bands a move
+    // changes and reuses the rest, which on a 60×60 board on a slow tablet
+    // is the difference between a quick and a sluggish tap.
+    const layer = (cls) => {
+      const s = el('svg', { viewBox, class: `layer ${cls}`, 'aria-hidden': 'true' });
+      this.root.appendChild(s);
+      return s;
+    };
     el('rect', { x: MARGIN_LEFT, y: MARGIN_TOP, width: w * U, height: h * U, class: 'board-bg' }, svg);
-    const cellLayer = el('g', {}, svg);
-    const lineLayer = el('g', {}, svg);
-    const markLayer = el('g', {}, svg);
-    this.hintLayer = el('g', {}, svg);
     const labelLayer = el('g', { class: 'labels' }, svg);
     this.labelLayer = labelLayer;
+    const bands = Math.ceil(h / BAND);
+    const fillBands = Array.from({ length: bands }, () => layer('fills'));
+    const lineLayer = layer('lines');
+    const markBands = Array.from({ length: bands }, () => layer('marks'));
+    const top = layer('top');
+    this.hintLayer = el('g', {}, top);
 
     this.rects = [];
     this.dots = [];
@@ -115,7 +143,13 @@ export class Board {
     for (let i = 0; i < w * h; i++) {
       const x = MARGIN_LEFT + (i % w) * U;
       const y = MARGIN_TOP + Math.floor(i / w) * U;
-      this.rects.push(el('rect', { x, y, width: U, height: U, class: 'cell' }, cellLayer));
+      const band = Math.floor(i / w / BAND);
+      const cellLayer = fillBands[band];
+      const markLayer = markBands[band];
+      // Blank cells and dots are not displayed at all (rather than drawn
+      // transparent or with no radius): on a big board, every element the
+      // browser keeps costs time on each tap to hit-test and repaint.
+      this.rects.push(el('rect', { x, y, width: U, height: U, class: 'cell', display: 'none' }, cellLayer));
       if (game.clues[i]) {
         const t = el('text', { x: x + U / 2, y: y + U / 2, class: 'clue' }, markLayer);
         t.textContent = game.clues[i];
@@ -124,7 +158,7 @@ export class Board {
         this.dots.push(null);
       } else {
         this.texts.push(null);
-        this.dots.push(el('circle', { cx: x + U / 2, cy: y + U / 2, r: 0, class: 'dot' }, markLayer));
+        this.dots.push(el('circle', { cx: x + U / 2, cy: y + U / 2, r: 0, class: 'dot', display: 'none' }, markLayer));
       }
     }
 
@@ -157,6 +191,10 @@ export class Board {
       t.textContent = r + 1;
       this.rowLabels.push(t);
     }
+    // One transparent rectangle on top takes every pointer event (the rest
+    // ignore them, see style.css): the browser finds it at once instead of
+    // testing thousands of shapes, and cellAt() works out the cell.
+    el('rect', { x: 0, y: 0, width: this.width, height: this.height, class: 'hit-area' }, top);
     this.hover = -1;
     // Zero size until fit(): drawn at the previous scale a new board could
     // overflow, and phones then widen the page, which spoils the fit.
@@ -183,16 +221,18 @@ export class Board {
       else if (a.isolated[i]) cls += ' isolated';
       else if (clues[i] || v === DOT || v === AUTO) cls += ' dotted';
       this.rects[i].setAttribute('class', cls);
+      show(this.rects[i], cls !== 'cell');
       if (clues[i]) {
         const s = a.clueState[i];
         this.texts[i].setAttribute('class', s === CLUE_ERROR ? 'clue error' : s === CLUE_DONE ? 'clue done' : 'clue');
       } else {
         const dot = this.dots[i];
-        dot.setAttribute('r', v === DOT ? 0.12 * U : v === AUTO ? 0.08 * U : 0);
+        show(dot, v === DOT || v === AUTO);
+        dot.setAttribute('r', v === DOT ? 0.12 * U : 0.08 * U);
         dot.setAttribute('class', v === AUTO ? 'dot auto' : 'dot');
       }
     }
-    this.svg.classList.toggle('solved', a.solved);
+    this.root.classList.toggle('solved', a.solved);
     if (!a.solved) this.stopCelebration();
     this.analysis = a;
     return a;
@@ -302,7 +342,7 @@ export class Board {
     this.svg.setAttribute('height', Math.floor(this.height * this.scale));
     this.applyStrokes();
     // Lets the page centre things over the grid rather than the whole board.
-    this.svg.parentElement.style.setProperty('--grid-shift', `${(MARGIN_LEFT - PAD) * this.scale}px`);
+    (this.root.closest('.board-wrap') || this.root).style.setProperty('--grid-shift', `${(MARGIN_LEFT - PAD) * this.scale}px`);
     // Keep coordinates at least ~8px on screen, within what fits a cell.
     this.labelLayer.style.fontSize = `${Math.min(0.5 * U, Math.max(0.35 * U, 8 / this.scale))}px`;
   }
@@ -329,7 +369,7 @@ export class Board {
     const grow = Math.sqrt(this.zoom);
     const device = (cssPx, min) => Math.max(min, Math.round(cssPx * dpr * grow)) / (dpr * this.zoom * scale);
     const line = device(1, 1);
-    const style = this.svg.style;
+    const style = this.root.style;
     style.setProperty('--px', `${1 / scale}px`);
     style.setProperty('--line', `${line}px`);
     style.setProperty('--major', `${Math.max(device(1.75, 1), line + 1 / (dpr * this.zoom * scale))}px`);

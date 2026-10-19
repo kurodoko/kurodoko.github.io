@@ -40,6 +40,9 @@ export class Game {
     this.future = [];
     this.checkpoints = [];
     this.changes = null;
+    // Bumped whenever cells change; analyze() reuses its result until then.
+    this.version = 0;
+    this.analysis = null;
     this.lastMove = -1;
     this.hints = 0;
     // Clock times (ms): when the puzzle was first set, and when it was solved (0: not).
@@ -56,6 +59,7 @@ export class Game {
     if (this.cells[i] === v) return;
     if (this.changes && !this.changes.has(i)) this.changes.set(i, this.cells[i]);
     this.cells[i] = v;
+    this.version++;
   }
 
   /** Run fn's writes, then bring the automatic dots up to date, as one undo step. */
@@ -128,6 +132,7 @@ export class Game {
     const group = this.history.pop();
     if (!group) return false;
     for (let k = group.length - 3; k >= 0; k -= 3) this.cells[group[k]] = group[k + 1];
+    this.version++;
     this.future.push(group);
     return true;
   }
@@ -136,6 +141,7 @@ export class Game {
     const group = this.future.pop();
     if (!group) return false;
     for (let k = 0; k < group.length; k += 3) this.cells[group[k]] = group[k + 2];
+    this.version++;
     this.history.push(group);
     return true;
   }
@@ -179,8 +185,10 @@ export class Game {
    *   adjacent[i]   1 for filled cells touching another filled cell.
    *   isolated[i]   1 for unfilled cells cut off from the largest unfilled area.
    *   solved        every cell is shaded or dotted, and every rule holds.
+   * The result is reused until the cells change; treat it as read-only.
    */
   analyze() {
+    if (this.analysis && this.analysis.version === this.version) return this.analysis;
     const { w, h, n, cells, clues, nb } = this;
     const adjacent = new Uint8Array(n);
     for (let i = 0; i < n; i++) {
@@ -225,7 +233,8 @@ export class Game {
     for (let i = 0; i < n && marked; i++) if (!clues[i] && cells[i] === EMPTY) marked = false;
     const solved = marked && allDone && sizes.length === 1 && !adjacent.includes(1)
       && isValidSolution(w, h, clues, Array.from(cells, (v) => v === FILLED));
-    return { clueState, adjacent, isolated, solved };
+    this.analysis = { clueState, adjacent, isolated, solved, version: this.version };
+    return this.analysis;
   }
 
   // --- persistence ----------------------------------------------------------
@@ -249,6 +258,7 @@ export class Game {
     if (typeof saved.cells === 'string' && saved.cells.length === this.n) {
       this.cells = decodeCells(saved.cells, this.n);
       for (let i = 0; i < this.n; i++) if (this.clues[i]) this.cells[i] = EMPTY;
+      this.version++;
     }
     if (Number.isInteger(saved.hints) && saved.hints > 0) this.hints = saved.hints;
     if (Number.isFinite(saved.startedAt) && saved.startedAt > 0) this.startedAt = saved.startedAt;

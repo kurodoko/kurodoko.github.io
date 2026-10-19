@@ -326,8 +326,9 @@ body.busy .board-wrap {
 
 /* Taps are moves: no double-tap zoom on the board, but pinch zoom and
    scrolling stay with the browser. */
-#board {
-  display: block;
+.board-layers {
+  position: relative;
+  width: fit-content;
   margin: 0 auto;
   touch-action: manipulation;
   user-select: none;
@@ -335,8 +336,29 @@ body.busy .board-wrap {
   -webkit-tap-highlight-color: transparent;
 }
 
-#board text {
+/* The base SVG sets the size; the other layers (see ui.js) lie on top. Each
+   is positioned, so the browser can repaint them separately. */
+#board {
+  display: block;
+  position: relative;
+}
+
+.board-layers .layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Only the transparent hit area on top takes pointer events. */
+.board-layers svg {
   pointer-events: none;
+}
+
+.board-layers .hit-area {
+  fill: transparent;
+  pointer-events: all;
 }
 
 .board-bg {
@@ -386,15 +408,15 @@ body.busy .board-wrap {
   shape-rendering: crispEdges;
 }
 
-#board.solved .cell.filled {
+.board-layers.solved .cell.filled {
   fill: var(--ok);
 }
 
-#board.solved .dot {
+.board-layers.solved .dot {
   fill: var(--ok-dot);
 }
 
-#board.solved .grid-border {
+.board-layers.solved .grid-border {
   stroke: var(--ok);
   stroke-width: calc(2 * var(--border-solved, 3px));
   /* Turns green as the solve animation settles. */
@@ -402,7 +424,7 @@ body.busy .board-wrap {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #board.solved .grid-border {
+  .board-layers.solved .grid-border {
     transition-duration: 0.8s;
     transition-delay: 0s;
   }
