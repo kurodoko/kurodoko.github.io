@@ -17,26 +17,31 @@
 
   <main class="layout">
     <section class="play">
-      <form id="new-form" class="panel controls" autocomplete="off">
-        <label>Width <input id="w" type="number" inputmode="numeric" required></label>
-        <label>Height <input id="h" type="number" inputmode="numeric" required></label>
-        <label>Difficulty
-          <select id="d">
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
-            <option value="fiendish">Fiendish</option>
-          </select>
-        </label>
-        <div class="seed-group">
-          <label class="seed">Seed <input id="seed" inputmode="numeric" pattern="-?[0-9]{1,15}" title="Any whole number"></label>
-          <button type="button" id="random-seed" title="Generate with a random seed">Random</button>
-          <button type="button" id="next-seed" title="Generate with the next seed (seed + 1)">Next</button>
+      <section class="panel picker" aria-label="Choose a puzzle">
+        <div id="daily" class="daily" role="group" aria-label="Today's puzzles">
+          <button type="button" id="custom-toggle" class="custom-toggle" aria-expanded="false" aria-controls="new-form" title="Any size, difficulty and seed">Custom</button>
         </div>
-        <div class="buttons">
-          <button type="submit" id="new" class="primary">Generate</button>
-        </div>
-      </form>
+        <form id="new-form" class="controls" autocomplete="off" hidden>
+          <label>Width <input id="w" type="number" inputmode="numeric" required></label>
+          <label>Height <input id="h" type="number" inputmode="numeric" required></label>
+          <label>Difficulty
+            <select id="d">
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+              <option value="fiendish">Fiendish</option>
+            </select>
+          </label>
+          <div class="seed-group">
+            <label class="seed">Seed <input id="seed" inputmode="numeric" pattern="-?[0-9]{1,15}" title="Any whole number"></label>
+            <button type="button" id="random-seed" title="Generate with a random seed">Random</button>
+            <button type="button" id="next-seed" title="Generate with the next seed (seed + 1)">Next</button>
+          </div>
+          <div class="buttons">
+            <button type="submit" id="new" class="primary">Generate</button>
+          </div>
+        </form>
+      </section>
 
       <div class="toolbar" role="toolbar" aria-label="Board">
         <button type="button" id="reset" title="Clear the board (undoable)">Reset</button>
@@ -93,7 +98,7 @@
           <li>A number turns grey once every cell it sees is dotted (it plus the dots in unbroken lines from it add up to the number), and blue when it can no longer be met. Touching shaded cells and cut-off areas also turn blue.</li>
         </ul>
         <h3>Puzzles</h3>
-        <p>Every puzzle has exactly one solution. Easy keeps the most spare numbers, medium fewer; neither needs a what-if. Hard keeps none and needs only the occasional short what-if (try a cell, see it fail within a few steps). Fiendish may need long what-if chains. The same width, height, difficulty and seed always give the same puzzle.</p>
+        <p>Each day brings a new puzzle in every size from 4×4 to 60×60 (medium difficulty); a size turns green with a tick once you have solved today's. Custom makes any other puzzle. Every puzzle has exactly one solution. Easy keeps the most spare numbers, medium fewer; neither needs a what-if. Hard keeps none and needs only the occasional short what-if (try a cell, see it fail within a few steps). Fiendish may need long what-if chains. The same width, height, difficulty and seed always give the same puzzle.</p>
       </section>
     </aside>
   </main>

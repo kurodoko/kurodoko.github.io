@@ -49,6 +49,20 @@ function touchIndex(name, key, limit) {
 
 const puzzleId = (p) => `v${GENERATOR_VERSION}:${p.w}x${p.h}:${p.difficulty}:${p.seed}`;
 
+// --- today's puzzles -----------------------------------------------------------
+
+/** Sizes of each day's puzzles (square), all at one difficulty. */
+const DAILY_SIZES = [4, 8, 12, 16, 20, 24, 32, 40, 48, 60];
+const DAILY_DIFFICULTY = 'medium';
+
+/** Today's local date as yyyymmdd: the seed of the day's puzzles. */
+function todaySeed(d = new Date()) {
+  const pad = (v) => String(v).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+}
+
+const dailyParams = (n) => ({ w: n, h: n, difficulty: DAILY_DIFFICULTY, seed: todaySeed() });
+
 // --- URL ----------------------------------------------------------------------
 
 function randomSeed() {
@@ -59,6 +73,8 @@ function randomSeed() {
 
 function readParams() {
   const q = new URLSearchParams(location.search);
+  // A plain visit opens today's smallest puzzle.
+  if (!q.has('w') && !q.has('h') && !q.has('seed')) return dailyParams(DAILY_SIZES[0]);
   const size = (k) => {
     const v = Number(q.get(k));
     return Number.isInteger(v) && v >= MIN_SIZE && v <= MAX_SIZE ? v : 10;
@@ -189,6 +205,7 @@ async function start(params, { push = false } = {}) {
   board.setGame(game);
   fitBoard();
   updateInfo();
+  renderDaily();
   renderCheckpoints();
   refresh();
   // Keep the start time even if the puzzle is left before any move.
@@ -213,6 +230,7 @@ function commit() {
   board.setHint([]);
   // Time the solve when a move completes the puzzle (cleared if it is undone).
   const { game } = current;
+  const wasSolved = game.solvedAt > 0;
   let justSolved = false;
   if (!game.analyze().solved) game.solvedAt = 0;
   else if (!game.solvedAt) {
@@ -220,6 +238,7 @@ function commit() {
     justSolved = true;
   }
   refresh();
+  if (wasSolved !== game.solvedAt > 0) renderDaily();
   if (justSolved) board.celebrate();
   scheduleSave();
 }
@@ -372,6 +391,50 @@ $('next-seed').addEventListener('click', () => {
   start({ ...p, seed: nextSeed(p.seed) }, { push: true });
 });
 
+// --- today's puzzles bar -------------------------------------------------------
+
+const dailyButtons = DAILY_SIZES.map((n) => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = `${n}×${n}`;
+  b.addEventListener('click', () => start(dailyParams(n), { push: true }));
+  $('daily').insertBefore(b, $('custom-toggle'));
+  return b;
+});
+
+function isSolved(id) {
+  if (current && current.id === id) return current.game.solvedAt > 0;
+  const saved = store.get('progress:' + id);
+  return Boolean(saved && saved.solvedAt > 0);
+}
+
+/**
+ * Mark the size whose puzzle of today is on the board, and tick the ones
+ * solved today. Any other puzzle (custom, or an earlier day's) marks Custom.
+ */
+function renderDaily() {
+  let onDaily = false;
+  DAILY_SIZES.forEach((n, k) => {
+    const b = dailyButtons[k];
+    const id = puzzleId(dailyParams(n));
+    const here = Boolean(current) && current.id === id;
+    const solved = isSolved(id);
+    onDaily ||= here;
+    b.classList.toggle('current', here);
+    b.classList.toggle('solved', solved);
+    if (here) b.setAttribute('aria-current', 'true');
+    else b.removeAttribute('aria-current');
+    b.title = `Today's ${n}×${n} puzzle${solved ? ', solved' : ''}`;
+  });
+  $('custom-toggle').classList.toggle('current', Boolean(current) && !onDaily);
+}
+
+$('custom-toggle').addEventListener('click', () => {
+  const open = $('new-form').hidden;
+  $('new-form').hidden = !open;
+  $('custom-toggle').setAttribute('aria-expanded', String(open));
+});
+
 // --- toolbar ------------------------------------------------------------------
 
 function act(fn) {
@@ -454,6 +517,8 @@ window.addEventListener('popstate', () => start(readParams()));
 window.addEventListener('pagehide', saveProgress);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') saveProgress();
+  // The day may have changed while away.
+  else renderDaily();
 });
 
 // --- checkpoints --------------------------------------------------------------

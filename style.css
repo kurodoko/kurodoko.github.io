@@ -22,6 +22,10 @@
   /* Dots on a solved board. */
   --ok-dot: #1d7f47;
   --hover: #efede8;
+  /* Today's-puzzle buttons: the one on the board, and solved ones. */
+  --current-bg: #e3e0d7;
+  --solved-bg: #1d6b40;
+  --solved-current-bg: #2a8f56;
   color-scheme: light;
 }
 
@@ -51,6 +55,9 @@
     --ok: #4cc27f;
     --ok-dot: #1f6e45;
     --hover: #26262a;
+    --current-bg: #3d3d45;
+    --solved-bg: #1d6b40;
+    --solved-current-bg: #2a8f56;
     color-scheme: dark;
   }
 }
@@ -140,11 +147,70 @@ a {
   margin: 0;
 }
 
+/* Today's puzzles, one button per size, then Custom (the generator form). */
+.daily {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.daily button {
+  padding: 6px 9px;
+  min-width: 3.6em;
+}
+
+.daily button.current {
+  background: var(--current-bg);
+  border-color: var(--ink);
+  font-weight: 700;
+}
+
+.daily button.solved {
+  background: var(--solved-bg);
+  border-color: var(--solved-bg);
+  color: #fff;
+}
+
+.daily button.solved::before {
+  content: "✓ ";
+}
+
+.daily button.solved.current,
+.daily button.solved:hover:not(:disabled) {
+  background: var(--solved-current-bg);
+}
+
+.daily button.solved.current {
+  border-color: var(--ink);
+}
+
+.daily .custom-toggle {
+  margin-left: auto;
+}
+
+.daily .custom-toggle::after {
+  content: " ▾";
+}
+
+.daily .custom-toggle[aria-expanded="true"]::after {
+  content: " ▴";
+}
+
 .controls {
   display: flex;
   flex-wrap: wrap;
   gap: 10px 14px;
   align-items: end;
+}
+
+.controls[hidden] {
+  display: none;
+}
+
+.picker .controls {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 
 .controls label {
