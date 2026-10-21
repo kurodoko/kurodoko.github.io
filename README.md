@@ -8,7 +8,7 @@ determined by its width, height, difficulty and seed, so a link such as
 same puzzle.
 
 Each day has its own puzzles: one per size (4×4, 8×8, 12×12, 16×16, 20×20,
-24×24, 32×32, 40×40, 48×48 and 60×60), at medium difficulty, with the date
+24×24, 32×32, 40×40, 48×48 and 60×60), at hard difficulty, with the date
 (yyyymmdd, local time) as the seed. The bar above the board picks a size;
 the one on the board is highlighted, and sizes you have solved today turn
 dark green with a tick. Custom opens the full generator (size, difficulty,

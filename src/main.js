@@ -53,7 +53,7 @@ const puzzleId = (p) => `v${GENERATOR_VERSION}:${p.w}x${p.h}:${p.difficulty}:${p
 
 /** Sizes of each day's puzzles (square), all at one difficulty. */
 const DAILY_SIZES = [4, 8, 12, 16, 20, 24, 32, 40, 48, 60];
-const DAILY_DIFFICULTY = 'medium';
+const DAILY_DIFFICULTY = 'hard';
 
 /** Today's local date as yyyymmdd: the seed of the day's puzzles. */
 function todaySeed(d = new Date()) {
