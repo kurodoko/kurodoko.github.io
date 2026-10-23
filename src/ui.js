@@ -133,7 +133,7 @@ export class Board {
     const fillBands = Array.from({ length: bands }, () => layer('fills'));
     const lineLayer = layer('lines');
     const markBands = Array.from({ length: bands }, () => layer('marks'));
-    const top = layer('top');
+    const top = layer('overlay');
     this.hintLayer = el('g', {}, top);
 
     this.rects = [];
